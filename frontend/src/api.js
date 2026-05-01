@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "/api",
+  baseURL: "https://daksh-jewellers-billing.onrender.com/api",
   headers: { "Content-Type": "application/json" },
 });
 
