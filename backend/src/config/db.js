@@ -5,7 +5,7 @@ let useInMemory = false;
 let mongoServer = null;
 
 const connectDB = async () => {
-  const externalUri = process.env.MONGODB_URI;
+  const externalUri = process.env.MONGO_URI;
 
   // 1. Try external MongoDB (Atlas or local) if URI is set explicitly
   if (externalUri && externalUri !== "mongodb://localhost:27017/daksh-jewellers") {
