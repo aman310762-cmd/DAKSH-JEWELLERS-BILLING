@@ -24,6 +24,10 @@ import {
   formatCurrency,
 } from "../billingLogic";
 import { downloadInvoicePDF } from "../components/PDFGenerator";
+import { Card, CardContent, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../components/ui/dialog";
 import toast from "react-hot-toast";
 
 const emptyItem = {
@@ -32,6 +36,7 @@ const emptyItem = {
   weight: "",
   purity: "22K",
   ratePerGram: "",
+  stoneCharges: "",
 };
 
 export default function CreateInvoice() {
@@ -53,6 +58,18 @@ export default function CreateInvoice() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   // Success modal after save
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [liveRatesSource, setLiveRatesSource] = useState(null);
+
+  // Phase 5: Auto-fetch live rates on mount
+  useEffect(() => {
+    import("../api").then(({ getLiveRates }) => {
+      getLiveRates().then(({ data }) => {
+        if (data.gold22K && !dailyGoldRate) setDailyGoldRate(String(data.gold22K));
+        if (data.silver && !dailySilverRate) setDailySilverRate(String(data.silver));
+        setLiveRatesSource(data.source);
+      }).catch(() => {});
+    });
+  }, []);
 
   // Live auto-calculation (FIX #5)
   const recalculate = useCallback(() => {
@@ -68,6 +85,7 @@ export default function CreateInvoice() {
       ...item,
       weight: parseFloat(item.weight),
       ratePerGram: parseFloat(item.ratePerGram),
+      stoneCharges: parseFloat(item.stoneCharges) || 0,
     }));
 
     const result = calculateInvoice(
@@ -289,6 +307,7 @@ export default function CreateInvoice() {
               <div className="border-t border-white/[0.05] pt-2 space-y-1">
                 <div className="flex justify-between text-xs"><span className="text-dark-500">Metal Value</span><span className="text-dark-200">{formatCurrency(billing.subtotal)}</span></div>
                 <div className="flex justify-between text-xs"><span className="text-dark-500">Making Charges</span><span className="text-dark-200">{formatCurrency(billing.makingCharges)}</span></div>
+                <div className="flex justify-between text-xs"><span className="text-dark-500">Stone Charges</span><span className="text-dark-200">{formatCurrency(billing.stoneCharges || 0)}</span></div>
                 <div className="flex justify-between text-xs"><span className="text-dark-500">GST (3%)</span><span className="text-dark-200">{formatCurrency(billing.gstAmount)}</span></div>
               </div>
               <div className="border-t border-gold-500/20 pt-2 flex justify-between">
@@ -331,6 +350,7 @@ export default function CreateInvoice() {
                 ["Items", `${savedInvoice.items.length} items`],
                 ["Metal Value", formatCurrency(savedInvoice.subtotal)],
                 ["Making Charges", formatCurrency(savedInvoice.makingCharges)],
+                ...(savedInvoice.stoneCharges > 0 ? [["Stone Charges", formatCurrency(savedInvoice.stoneCharges)]] : []),
                 ["GST (3%)", formatCurrency(savedInvoice.gstAmount)],
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between text-sm animate-fade-in-up" style={{ opacity: 0 }}>
@@ -351,6 +371,9 @@ export default function CreateInvoice() {
                 <Send size={16} /> WhatsApp
               </button>
             </div>
+            <button onClick={() => { setShowSuccessModal(false); resetForm(); }} className="w-full mt-2 py-2.5 rounded-xl text-xs text-dark-400 hover:text-gold-400 bg-white/[0.02] hover:bg-white/[0.04] transition-all">
+              Create Another Invoice
+            </button>
           </div>
         </div>
       )}
@@ -366,6 +389,11 @@ export default function CreateInvoice() {
                 <IndianRupee size={14} className="text-gold-400" />
               </div>
               Today's Rate (per gram)
+              {liveRatesSource && (
+                <span className={`ml-2 text-[9px] px-2 py-0.5 rounded-full font-medium ${liveRatesSource === "default" ? "bg-dark-700 text-dark-400" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/15"}`}>
+                  {liveRatesSource === "default" ? "Default" : "🟢 Live"}
+                </span>
+              )}
             </h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -379,7 +407,9 @@ export default function CreateInvoice() {
                   placeholder="e.g. 95" className="input-gold w-full px-4 py-3 rounded-xl text-sm" />
               </div>
             </div>
-            <p className="text-[10px] text-dark-600 mt-2">Set today's rate — auto-fills for new items. Can override per item.</p>
+            <p className="text-[10px] text-dark-600 mt-2">
+              {liveRatesSource === "goldapi.io" ? "Rates auto-fetched from live market. You can still override per item." : "Set today's rate — auto-fills for new items. Can override per item."}
+            </p>
           </div>
 
           {/* Customer Details */}
@@ -455,7 +485,7 @@ export default function CreateInvoice() {
                   <div className="text-[10px] text-gold-400/50 uppercase tracking-[0.15em] mb-3 font-semibold flex items-center gap-1.5">
                     <Sparkles size={10} /> Item {index + 1}
                   </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                     <div className="col-span-2 sm:col-span-1">
                       <label className="text-[10px] text-dark-500 mb-1 block font-medium">Item Name <span className="text-gold-600">*</span></label>
                       <input type="text" value={item.name} onChange={(e) => updateItem(index, "name", e.target.value)}
@@ -491,6 +521,15 @@ export default function CreateInvoice() {
                       <input type="number" value={item.ratePerGram}
                         onChange={(e) => updateItem(index, "ratePerGram", e.target.value)}
                         placeholder={PURITY_METAL[item.purity] === "gold" ? (dailyGoldRate || "6500") : (dailySilverRate || "95")}
+                        className="input-gold w-full px-3 py-2.5 rounded-lg text-sm" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-dark-500 mb-1 block font-medium">
+                        Stone (₹)
+                      </label>
+                      <input type="number" value={item.stoneCharges}
+                        onChange={(e) => updateItem(index, "stoneCharges", e.target.value)}
+                        placeholder="0"
                         className="input-gold w-full px-3 py-2.5 rounded-lg text-sm" />
                     </div>
                   </div>
@@ -567,6 +606,7 @@ export default function CreateInvoice() {
                   {[
                     ["Metal Value", formatCurrency(billing.subtotal)],
                     ["Making Charges", formatCurrency(billing.makingCharges)],
+                    ["Stone Charges", formatCurrency(billing.stoneCharges || 0)],
                     ["GST (3%)", formatCurrency(billing.gstAmount)],
                   ].map(([l, v]) => (
                     <div key={l} className="flex justify-between text-xs">

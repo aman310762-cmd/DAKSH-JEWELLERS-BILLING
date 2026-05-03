@@ -1,250 +1,362 @@
 import { jsPDF } from "jspdf";
 import "jspdf-autotable";
-import { formatCurrency, PURITY_LABELS } from "../billingLogic";
+import { formatCurrency, PURITY_LABELS, getHSNCode } from "../billingLogic";
 
 const BIZ = {
-  name: "Daksh Jewellers",
-  tagline: "FIND THE PERFECT ONE FOR YOU",
-  address: "Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019",
+  name: "DAKSH JEWELLERS",
+  dealsIn: "All Types of Gold, Silver & Diamond Jewellery",
+  address: "Shop No. 1, Rainwar Market, Near Hill View Garden, Vill. Thada (Alwar) Rajasthan",
+  gstin: "08CUXPK2325H1Z5",
+  proprietor: "Praveen Kumar",
+  phone: "9896424648",
+  state: "Rajasthan",
+  stateCode: "08",
 };
 
 /**
- * Draw a diamond icon shape using PDF lines
+ * Convert number to Indian words
  */
-function drawDiamondIcon(doc, cx, cy, size) {
-  doc.setDrawColor(60, 60, 60);
-  doc.setLineWidth(0.6);
-  // Diamond outline
-  const s = size;
-  doc.line(cx, cy - s, cx + s * 0.9, cy - s * 0.1); // top to right
-  doc.line(cx + s * 0.9, cy - s * 0.1, cx + s * 0.5, cy + s);  // right to bottom-right
-  doc.line(cx + s * 0.5, cy + s, cx, cy + s * 0.4);             // bottom-right to bottom
-  doc.line(cx, cy + s * 0.4, cx - s * 0.5, cy + s);             // bottom to bottom-left
-  doc.line(cx - s * 0.5, cy + s, cx - s * 0.9, cy - s * 0.1);  // bottom-left to left
-  doc.line(cx - s * 0.9, cy - s * 0.1, cx, cy - s);             // left to top
-  // Inner facet lines
-  doc.line(cx - s * 0.5, cy - s * 0.1, cx + s * 0.5, cy - s * 0.1); // horizontal
-  doc.line(cx - s * 0.5, cy - s * 0.1, cx, cy + s * 0.4);
-  doc.line(cx + s * 0.5, cy - s * 0.1, cx, cy + s * 0.4);
+function numberToWords(num) {
+  if (!num || num === 0) return "Zero Rupees Only";
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine",
+    "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+
+  const numToStr = (n) => {
+    if (n === 0) return "";
+    if (n < 20) return ones[n];
+    if (n < 100) return tens[Math.floor(n / 10)] + (n % 10 ? " " + ones[n % 10] : "");
+    return ones[Math.floor(n / 100)] + " Hundred" + (n % 100 ? " " + numToStr(n % 100) : "");
+  };
+
+  const whole = Math.floor(Math.abs(num));
+  const paise = Math.round((Math.abs(num) - whole) * 100);
+
+  const crore = Math.floor(whole / 10000000);
+  const lakh = Math.floor((whole % 10000000) / 100000);
+  const thousand = Math.floor((whole % 100000) / 1000);
+  const remainder = whole % 1000;
+
+  let result = "";
+  if (crore > 0) result += numToStr(crore) + " Crore ";
+  if (lakh > 0) result += numToStr(lakh) + " Lakh ";
+  if (thousand > 0) result += numToStr(thousand) + " Thousand ";
+  if (remainder > 0) result += numToStr(remainder);
+  result = result.trim() + " Rupees";
+  if (paise > 0) result += " and " + numToStr(paise) + " Paise";
+  return result + " Only";
 }
 
 /**
- * Generate elegant cream-styled jewellery invoice PDF
- * Inspired by the clean W.K Diamond aesthetic
+ * Format amount for PDF (ensures no overflow)
+ */
+function fmtAmt(n) {
+  return "Rs. " + new Intl.NumberFormat("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n || 0);
+}
+
+/**
+ * Generate Tax Invoice PDF matching paper format
  */
 export function generateInvoicePDF(invoice) {
   const doc = new jsPDF("p", "mm", "a4");
-  const pw = doc.internal.pageSize.getWidth();   // 210
-  const ph = doc.internal.pageSize.getHeight();   // 297
-  const m = 18; // margin
+  const pw = 210;
+  const ph = 297;
+  const ml = 15; // left margin
+  const mr = pw - 15; // right margin
+  const contentW = mr - ml;
 
-  // ===== CREAM BACKGROUND =====
-  doc.setFillColor(245, 241, 230); // elegant warm cream
+  // White background
+  doc.setFillColor(255, 255, 255);
   doc.rect(0, 0, pw, ph, "F");
 
-  // ===== TOP BORDER ACCENT =====
-  doc.setFillColor(200, 190, 168); // muted gold/taupe border
-  doc.rect(0, 0, pw, 4, "F");
+  // Outer border
+  doc.setDrawColor(40, 40, 40);
+  doc.setLineWidth(0.6);
+  doc.rect(ml - 2, 8, contentW + 4, ph - 16, "S");
 
-  // ===== HEADER: Business name (left) + Invoice info (right) =====
-  let y = 18;
+  let y = 15;
 
-  // Diamond icon
-  drawDiamondIcon(doc, m + 5, y + 2, 5);
+  // === GSTIN LINE ===
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(80, 80, 80);
+  doc.text("GSTIN: " + BIZ.gstin, ml, y);
+  doc.text("E.Com Bills", mr, y, { align: "right" });
 
-  // Business Name
-  doc.setTextColor(45, 40, 35);
+  // === SHOP NAME ===
+  y += 10;
+  doc.setTextColor(20, 20, 20);
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
-  doc.text(BIZ.name.toUpperCase(), m + 14, y + 1);
+  doc.text(BIZ.name, pw / 2, y, { align: "center" });
 
-  // Tagline
-  doc.setTextColor(140, 130, 115);
+  // Deals in
+  y += 7;
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "italic");
+  doc.setTextColor(80, 80, 80);
+  doc.text("Deals in : " + BIZ.dealsIn, pw / 2, y, { align: "center" });
+
+  // Address
+  y += 5;
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  doc.setFont("helvetica", "normal");
-  doc.text(BIZ.tagline, m + 14, y + 7);
+  doc.text(BIZ.address, pw / 2, y, { align: "center" });
 
-  // Right side: Invoice details
-  const rx = pw - m;
-  doc.setTextColor(100, 90, 80);
-  doc.setFontSize(8.5);
-  doc.setFont("helvetica", "normal");
+  // Proprietor info (right aligned, same row as shop name)
+  doc.setFontSize(7);
+  doc.text("Proprietor: " + BIZ.proprietor, mr, y - 12, { align: "right" });
+  doc.text(BIZ.phone, mr, y - 7, { align: "right" });
 
-  const createdDate = new Date(invoice.createdAt);
-  const dateStr = createdDate.toLocaleDateString("en-IN", {
-    day: "numeric", month: "long", year: "numeric"
-  });
-  const timeStr = createdDate.toLocaleTimeString("en-IN", {
-    hour: "2-digit", minute: "2-digit", hour12: true
-  });
-
-  doc.text(`Invoice No. ${invoice.invoiceNumber || "—"}`, rx, y - 2, { align: "right" });
-  doc.text(dateStr, rx, y + 3.5, { align: "right" });
-  doc.text(timeStr, rx, y + 9, { align: "right" });
-  doc.text("Thara, Rajasthan", rx, y + 14.5, { align: "right" });
-
-  // ===== DIVIDER LINE =====
-  y = 42;
-  doc.setDrawColor(180, 170, 155);
+  // Divider
+  y += 5;
+  doc.setDrawColor(60, 60, 60);
   doc.setLineWidth(0.4);
-  doc.line(m, y, pw - m, y);
+  doc.line(ml, y, mr, y);
 
-  // ===== TABLE HEADER =====
+  // === TAX INVOICE ===
+  y += 8;
+  doc.setFontSize(13);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(20, 20, 20);
+  doc.text("TAX INVOICE", pw / 2, y, { align: "center" });
+
+  // === BILL INFO ROW ===
+  y += 8;
+  doc.setFontSize(9);
+  const dateStr = new Date(invoice.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Bill No:", ml, y);
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(12);
+  doc.text(String(invoice.invoiceNumber || "-"), ml + 18, y);
+
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Date:", pw / 2 - 10, y);
+  doc.setFont("helvetica", "normal");
+  doc.text(dateStr, pw / 2 + 5, y);
+
+  doc.setFont("helvetica", "bold");
+  doc.text("Place of supply:", mr - 42, y);
+  doc.setFont("helvetica", "normal");
+  doc.text("Rajasthan", mr, y, { align: "right" });
+
+  // Divider
+  y += 5;
+  doc.setLineWidth(0.3);
+  doc.line(ml, y, mr, y);
+
+  // === BUYER DETAILS ===
   y += 6;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("Buyer Details", ml, y);
 
-  // Column positions
-  const cols = {
-    desc: m + 2,
-    weight: 95,
-    purity: 115,
-    rate: 145,
-    total: pw - m - 2,
+  y += 6;
+  doc.setFontSize(8);
+  const col2 = pw / 2 + 10;
+
+  // Row 1: Name + Phone
+  doc.setFont("helvetica", "bold"); doc.text("Name:", ml, y);
+  doc.setFont("helvetica", "normal"); doc.text(invoice.customerName || "-", ml + 16, y);
+  doc.setFont("helvetica", "bold"); doc.text("Phone No:", col2, y);
+  doc.setFont("helvetica", "normal"); doc.text("+91 " + (invoice.customerPhone || "-"), col2 + 22, y);
+
+  // Row 2: Address + State
+  y += 6;
+  doc.setFont("helvetica", "bold"); doc.text("Address:", ml, y);
+  doc.setFont("helvetica", "normal");
+  const addrText = invoice.customerAddress || "-";
+  const addrLines = doc.splitTextToSize(addrText, 65);
+  doc.text(addrLines, ml + 20, y);
+  doc.setFont("helvetica", "bold"); doc.text("State:", col2, y);
+  doc.setFont("helvetica", "normal"); doc.text("Rajasthan", col2 + 22, y);
+
+  // Row 3: State Code
+  y += 6;
+  doc.setFont("helvetica", "bold"); doc.text("State Code:", col2, y);
+  doc.setFont("helvetica", "normal"); doc.text("08", col2 + 22, y);
+
+  // === ITEMS TABLE ===
+  y += 8;
+  doc.setLineWidth(0.4);
+  doc.line(ml, y, mr, y);
+
+  // Table columns — properly spaced
+  const c = {
+    sn: ml + 5,
+    snEnd: ml + 12,
+    desc: ml + 14,
+    descEnd: ml + 85,
+    hsn: ml + 87,
+    hsnEnd: ml + 105,
+    wt: ml + 107,
+    wtEnd: ml + 125,
+    rate: ml + 127,
+    rateEnd: ml + 150,
+    amt: mr - 2,
+    amtStart: ml + 152,
   };
 
-  // Header row
-  doc.setTextColor(60, 55, 45);
-  doc.setFontSize(8.5);
-  doc.setFont("helvetica", "bold");
-  doc.text("DESCRIPTION", cols.desc, y);
-  doc.text("WEIGHT", cols.weight, y, { align: "center" });
-  doc.text("PURITY", cols.purity, y, { align: "center" });
-  doc.text("RATE", cols.rate, y, { align: "right" });
-  doc.text("TOTAL", cols.total, y, { align: "right" });
-
-  // Header underline
-  y += 3;
-  doc.setDrawColor(160, 150, 135);
-  doc.setLineWidth(0.5);
-  doc.line(m, y, pw - m, y);
-
-  // ===== CUSTOMER INFO (left side, alongside items) =====
-  y += 10;
-  const customerY = y;
-
-  // Customer block
-  doc.setTextColor(120, 110, 100);
+  // Column headers
+  y += 5;
   doc.setFontSize(7.5);
-  doc.setFont("helvetica", "normal");
-  doc.text("INVOICE TO", m + 2, customerY);
-
-  doc.setTextColor(45, 40, 35);
-  doc.setFontSize(12);
   doc.setFont("helvetica", "bold");
-  doc.text(invoice.customerName || "—", m + 2, customerY + 7);
+  doc.setTextColor(30, 30, 30);
 
-  doc.setTextColor(100, 90, 80);
-  doc.setFontSize(8);
+  doc.text("S.N.", c.sn, y);
+  doc.text("Description of Goods / Services", c.desc, y);
+  doc.text("HSN SAC", (c.hsn + c.hsnEnd) / 2, y, { align: "center" });
+  doc.text("Weight(gm)", (c.wt + c.wtEnd) / 2, y, { align: "center" });
+  doc.text("Rate", (c.rate + c.rateEnd) / 2, y, { align: "center" });
+  doc.text("Amount (in Rs.)", c.amt, y, { align: "right" });
+
+  // Header line
+  y += 3;
+  doc.setLineWidth(0.3);
+  doc.line(ml, y, mr, y);
+
+  // Vertical dividers positions
+  const vLines = [c.snEnd, c.descEnd, c.hsnEnd, c.wtEnd, c.rateEnd];
+  const tableHeaderY = y - 8;
+
+  // === ITEM ROWS ===
+  y += 2;
   doc.setFont("helvetica", "normal");
-  doc.text(`+91 ${invoice.customerPhone || "—"}`, m + 2, customerY + 13);
+  doc.setFontSize(8);
+  doc.setTextColor(30, 30, 30);
 
-  if (invoice.customerAddress) {
-    const addrLines = doc.splitTextToSize(invoice.customerAddress, 60);
-    doc.text(addrLines, m + 2, customerY + 18);
+  const rowHeight = 8;
+  invoice.items.forEach((item, i) => {
+    const rowY = y + (i * rowHeight) + 4;
+    const purityLabel = PURITY_LABELS[item.purity] || item.purity;
+    const hsnCode = item.hsnCode || getHSNCode(item.purity, item.category);
+    const desc = item.code ? item.name + " (" + item.code + ") - " + purityLabel : item.name + " - " + purityLabel;
+
+    doc.text(String(i + 1), c.sn + 2, rowY);
+
+    // Truncate description to fit column
+    const descTrunc = doc.splitTextToSize(desc, c.descEnd - c.desc - 2);
+    doc.text(descTrunc[0], c.desc, rowY);
+
+    doc.text(hsnCode, (c.hsn + c.hsnEnd) / 2, rowY, { align: "center" });
+    doc.text(item.weight + "g", (c.wt + c.wtEnd) / 2, rowY, { align: "center" });
+    doc.text(fmtAmt(item.ratePerGram), (c.rate + c.rateEnd) / 2, rowY, { align: "center" });
+
+    doc.setFont("helvetica", "bold");
+    doc.text(fmtAmt(item.adjustedPrice), c.amt, rowY, { align: "right" });
+    doc.setFont("helvetica", "normal");
+  });
+
+  // Ensure minimum table height (5 rows)
+  const minRows = Math.max(5, invoice.items.length);
+  const tableEndY = y + (minRows * rowHeight) + 6;
+
+  // Draw vertical lines
+  doc.setDrawColor(150, 150, 150);
+  doc.setLineWidth(0.15);
+  vLines.forEach(x => {
+    doc.line(x, tableHeaderY, x, tableEndY);
+  });
+
+  // Left and right borders for table
+  doc.line(ml, tableHeaderY, ml, tableEndY);
+  doc.line(mr, tableHeaderY, mr, tableEndY);
+
+  // Bottom of table
+  y = tableEndY;
+  doc.setDrawColor(60, 60, 60);
+  doc.setLineWidth(0.4);
+  doc.line(ml, y, mr, y);
+
+  // === TOTALS ===
+  y += 6;
+  const lblX = pw / 2 + 15;
+  const valX = mr - 3;
+
+  doc.setFontSize(8);
+  doc.setTextColor(30, 30, 30);
+
+  const row = (label, val, bold = false) => {
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.text(label, lblX, y);
+    doc.text(fmtAmt(val), valX, y, { align: "right" });
+    y += 5;
+  };
+
+  row("Sub Total:", invoice.subtotal);
+  row("Making Charges:", invoice.makingCharges);
+
+  if (invoice.stoneCharges && invoice.stoneCharges > 0) {
+    row("Stone Charges:", invoice.stoneCharges);
   }
 
-  // ===== ITEM ROWS =====
-  let itemY = customerY;
+  const taxable = (invoice.subtotal || 0) + (invoice.makingCharges || 0) + (invoice.stoneCharges || 0);
+  row("Taxable Amount:", invoice.taxableAmount || taxable);
 
-  invoice.items.forEach((item, i) => {
-    const rowY = itemY + (i * 18);
-    const purityLabel = PURITY_LABELS[item.purity] || item.purity;
+  const halfGst = (invoice.gstAmount || 0) / 2;
+  const halfRate = ((invoice.gstRate || 3) / 2).toFixed(1);
+  row("CGST @ " + halfRate + "%:", halfGst);
+  row("SGST @ " + halfRate + "%:", halfGst);
 
-    // Item name + code
-    doc.setTextColor(50, 45, 40);
-    doc.setFontSize(9.5);
-    doc.setFont("helvetica", "normal");
-    const itemDesc = item.code ? `${item.name} (${item.code})` : item.name;
-    doc.text(itemDesc, cols.weight - 22, rowY);
-
-    // Weight
-    doc.setFontSize(9);
-    doc.setTextColor(70, 65, 55);
-    doc.text(`${item.weight}g`, cols.weight, rowY, { align: "center" });
-
-    // Purity
-    doc.text(purityLabel, cols.purity, rowY, { align: "center" });
-
-    // Rate
-    doc.text(formatCurrency(item.ratePerGram), cols.rate, rowY, { align: "right" });
-
-    // Total
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(45, 40, 35);
-    doc.text(formatCurrency(item.adjustedPrice), cols.total, rowY, { align: "right" });
-    doc.setFont("helvetica", "normal");
-  });
-
-  // Move Y past items
-  const itemsEndY = itemY + (invoice.items.length * 18) + 8;
-  y = Math.max(itemsEndY, customerY + 40);
-
-  // ===== BOTTOM DIVIDER =====
-  doc.setDrawColor(160, 150, 135);
-  doc.setLineWidth(0.5);
-  doc.line(m, y, pw - m, y);
-
-  // ===== TOTALS SECTION =====
-  y += 10;
-  const labelX = 115;
-  const valX = pw - m - 2;
-
-  const drawTotal = (label, value, yy, bold = false, large = false) => {
-    doc.setFontSize(large ? 11 : 9);
-    doc.setFont("helvetica", bold ? "bold" : "normal");
-    doc.setTextColor(bold ? 45 : 90, bold ? 40 : 85, bold ? 35 : 75);
-    doc.text(label, labelX, yy);
-    doc.setTextColor(45, 40, 35);
-    doc.text(value, valX, yy, { align: "right" });
-  };
-
-  drawTotal("METAL VALUE:", formatCurrency(invoice.subtotal), y);
-  drawTotal("MAKING CHARGES:", formatCurrency(invoice.makingCharges), y + 8);
-  drawTotal(`GST (${invoice.gstRate || 3}%):`, formatCurrency(invoice.gstAmount), y + 16);
-
-  // Total line
-  y += 24;
-  doc.setDrawColor(180, 170, 155);
+  // Grand total divider
+  y += 1;
   doc.setLineWidth(0.3);
-  doc.line(labelX - 5, y, valX + 2, y);
+  doc.line(lblX - 3, y, valX + 2, y);
 
-  y += 8;
-  drawTotal("AMOUNT:", formatCurrency(invoice.totalAmount), y, true, true);
-
-  // ===== FOOTER SECTION =====
-  // Payment detail box area
-  const footerY = ph - 55;
-
-  doc.setDrawColor(200, 190, 168);
-  doc.setLineWidth(0.3);
-  doc.line(m, footerY, pw - m, footerY);
-
-  // Left: business info
-  doc.setTextColor(90, 80, 70);
-  doc.setFontSize(8);
+  y += 7;
+  doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("DAKSH JEWELLERS", m + 2, footerY + 10);
+  doc.text("GRAND TOTAL:", lblX, y);
+  doc.text(fmtAmt(invoice.totalAmount), valX, y, { align: "right" });
 
+  // === RS IN WORDS ===
+  y += 10;
+  doc.setDrawColor(80, 80, 80);
+  doc.setLineWidth(0.3);
+  doc.line(ml, y, mr, y);
+
+  y += 5;
+  doc.setFontSize(7.5);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(30, 30, 30);
+  doc.text("Rs. in Words:", ml, y);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
-  doc.setTextColor(120, 110, 100);
-  const footerLines = [
-    BIZ.address,
-    "GST: Applicable as per Government norms",
-    "Prices inclusive of hallmarking charges",
-  ];
-  footerLines.forEach((line, i) => {
-    doc.text(line, m + 2, footerY + 16 + (i * 5));
-  });
+  const wordsText = numberToWords(invoice.totalAmount);
+  const wordLines = doc.splitTextToSize(wordsText, contentW - 28);
+  doc.text(wordLines, ml + 28, y);
 
-  // Right: Thank you
-  doc.setTextColor(100, 85, 60);
-  doc.setFontSize(20);
-  doc.setFont("helvetica", "bolditalic");
-  doc.text("Thank you!", pw - m - 5, footerY + 22, { align: "right" });
+  // === TERMS ===
+  y += wordLines.length * 4 + 5;
+  doc.setDrawColor(160, 160, 160);
+  doc.setLineWidth(0.2);
+  doc.line(ml, y, mr, y);
 
-  // Bottom border accent
-  doc.setFillColor(200, 190, 168);
-  doc.rect(0, ph - 4, pw, 4, "F");
+  y += 4;
+  doc.setFontSize(6);
+  doc.setTextColor(100, 100, 100);
+  doc.text("Goods once sold will not be taken back or exchanged.", ml, y);
+  y += 3.5;
+  doc.text("Our risk and responsibility ceases as soon as the goods leave our premises.", ml, y);
+  y += 3.5;
+  doc.text("Subject to Alwar Jurisdiction only.", ml, y);
+
+  // === SIGNATURES ===
+  const sigY = Math.max(y + 15, ph - 30);
+  doc.setDrawColor(80, 80, 80);
+  doc.setLineWidth(0.3);
+  doc.line(ml, sigY, mr, sigY);
+
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(60, 60, 60);
+  doc.text("Customer's Signature", ml + 10, sigY + 10);
+  doc.text("For DAKSH JEWELLERS", mr - 10, sigY + 5, { align: "right" });
+  doc.setFont("helvetica", "bold");
+  doc.text("Authorised Signatory", mr - 10, sigY + 10, { align: "right" });
 
   return doc;
 }
@@ -255,28 +367,24 @@ export function generateInvoicePDF(invoice) {
 export function downloadInvoicePDF(invoice) {
   try {
     const doc = generateInvoicePDF(invoice);
-    const filename = `Invoice_${(invoice.invoiceNumber || "draft").replace(/[^a-zA-Z0-9-]/g, "_")}.pdf`;
+    const filename = "Invoice_" + (invoice.invoiceNumber || "draft").replace(/[^a-zA-Z0-9-]/g, "_") + ".pdf";
     doc.save(filename);
     return true;
   } catch (err) {
     console.error("PDF generation error:", err);
+    // Fallback simple PDF
     try {
       const doc = new jsPDF();
-      doc.setFillColor(245, 241, 230);
-      doc.rect(0, 0, 210, 297, "F");
-      doc.setTextColor(45, 40, 35);
-      doc.setFontSize(22);
+      doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
       doc.text("DAKSH JEWELLERS", 105, 30, { align: "center" });
-      doc.setFontSize(11);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Invoice: ${invoice.invoiceNumber}`, 25, 55);
-      doc.text(`Customer: ${invoice.customerName}`, 25, 65);
-      doc.text(`Phone: +91 ${invoice.customerPhone}`, 25, 75);
-      doc.text(`Total: ${formatCurrency(invoice.totalAmount)}`, 25, 90);
-      doc.setFontSize(9);
-      doc.text("Thank you for shopping with Daksh Jewellers", 105, 120, { align: "center" });
-      doc.save(`Invoice_${invoice.invoiceNumber || "draft"}.pdf`);
+      doc.text("Invoice: " + invoice.invoiceNumber, 20, 50);
+      doc.text("Customer: " + invoice.customerName, 20, 60);
+      doc.text("Phone: +91 " + invoice.customerPhone, 20, 70);
+      doc.text("Total: " + fmtAmt(invoice.totalAmount), 20, 85);
+      doc.save("Invoice_" + (invoice.invoiceNumber || "draft") + ".pdf");
       return true;
     } catch (e2) {
       console.error("Fallback PDF failed:", e2);

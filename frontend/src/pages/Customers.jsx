@@ -1,15 +1,13 @@
 import { useState, useEffect } from "react";
 import {
-  Users,
-  Plus,
-  Search,
-  Phone,
-  MapPin,
-  User,
-  X,
-  UserPlus,
+  Users, Plus, Search, Phone, MapPin, User, X, UserPlus, Calendar,
 } from "lucide-react";
 import { getCustomers, createCustomer } from "../api";
+import { Card, CardContent } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
+import { StatCardSkeleton } from "../components/ui/skeleton";
 import toast from "react-hot-toast";
 
 export default function Customers() {
@@ -73,14 +71,15 @@ export default function Customers() {
             {customers.length} total customers
           </p>
         </div>
-        <button
+        <Button
           id="add-customer-btn"
           onClick={() => setShowModal(true)}
-          className="btn-gold px-5 py-2.5 rounded-xl text-sm flex items-center gap-2 self-start"
+          size="lg"
+          className="self-start"
         >
           <UserPlus size={16} />
           Add Customer
-        </button>
+        </Button>
       </div>
 
       {/* Search */}
@@ -98,37 +97,42 @@ export default function Customers() {
 
       {/* Grid */}
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-10 h-10 border-[3px] border-gold-500/20 border-t-gold-500 rounded-full animate-spin" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {[...Array(6)].map((_, i) => <StatCardSkeleton key={i} />)}
         </div>
       ) : customers.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 stagger-children">
           {customers.map((c) => (
-            <div key={c._id} className="glass rounded-2xl p-5 card-hover animate-fade-in-up" style={{ opacity: 0 }}>
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gold-500/10 flex items-center justify-center shrink-0">
-                  <User size={17} className="text-gold-400/70" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-sm font-semibold text-white truncate">
-                    {c.name}
-                  </h3>
-                  <div className="flex items-center gap-1.5 mt-1.5 text-xs text-dark-400">
-                    <Phone size={11} />
-                    +91 {c.phone}
+            <Card key={c._id} hover className="animate-fade-in-up" style={{ opacity: 0 }}>
+              <CardContent className="pt-5">
+                <div className="flex items-start gap-3">
+                  <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-gold-400/20 to-gold-600/10 flex items-center justify-center shrink-0">
+                    <User size={18} className="text-gold-400/70" />
                   </div>
-                  {c.address && (
-                    <div className="flex items-start gap-1.5 mt-1 text-xs text-dark-500">
-                      <MapPin size={11} className="shrink-0 mt-0.5" />
-                      <span className="truncate">{c.address}</span>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-semibold text-white truncate">
+                      {c.name}
+                    </h3>
+                    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-dark-400">
+                      <Phone size={11} />
+                      +91 {c.phone}
                     </div>
-                  )}
-                  <p className="text-[10px] text-dark-600 mt-2">
-                    Added {new Date(c.createdAt).toLocaleDateString("en-IN")}
-                  </p>
+                    {c.address && (
+                      <div className="flex items-start gap-1.5 mt-1 text-xs text-dark-500">
+                        <MapPin size={11} className="shrink-0 mt-0.5" />
+                        <span className="truncate">{c.address}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 mt-2.5">
+                      <Badge variant="neutral">
+                        <Calendar size={9} />
+                        {new Date(c.createdAt).toLocaleDateString("en-IN")}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       ) : (
@@ -140,83 +144,73 @@ export default function Customers() {
       )}
 
       {/* Add Customer Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 modal-overlay">
-          <div className="glass rounded-2xl p-8 max-w-md w-full relative modal-content">
-            <button
-              onClick={() => setShowModal(false)}
-              className="absolute top-4 right-4 text-dark-400 hover:text-white transition-colors"
-            >
-              <X size={20} />
-            </button>
-
-            <h2 className="text-lg font-bold text-white mb-6 flex items-center gap-2">
-              <UserPlus size={20} className="text-gold-400" />
-              Add Customer
-            </h2>
-
-            <form onSubmit={handleAdd} className="space-y-4">
-              <div>
-                <label className="text-xs text-dark-400 mb-1.5 block font-medium">
-                  Name <span className="text-gold-500">*</span>
-                </label>
-                <input
-                  id="modal-customer-name"
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  placeholder="Customer name"
-                  className="input-gold w-full px-4 py-3 rounded-xl text-sm"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="text-xs text-dark-400 mb-1.5 block font-medium">
-                  Phone <span className="text-gold-500">*</span>
-                </label>
-                <input
-                  id="modal-customer-phone"
-                  type="tel"
-                  value={form.phone}
-                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                  placeholder="9876543210"
-                  maxLength={10}
-                  className="input-gold w-full px-4 py-3 rounded-xl text-sm"
-                />
-              </div>
-              <div>
-                <label className="text-xs text-dark-400 mb-1.5 block font-medium">
-                  Address
-                </label>
-                <input
-                  id="modal-customer-address"
-                  type="text"
-                  value={form.address}
-                  onChange={(e) =>
-                    setForm({ ...form, address: e.target.value })
-                  }
-                  placeholder="Enter address"
-                  className="input-gold w-full px-4 py-3 rounded-xl text-sm"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full btn-gold py-3.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 mt-2"
-              >
-                {submitting ? (
-                  <div className="w-5 h-5 border-2 border-dark-900/30 border-t-dark-900 rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <UserPlus size={16} />
-                    Add Customer
-                  </>
-                )}
-              </button>
-            </form>
+      <Dialog open={showModal} onClose={() => setShowModal(false)}>
+        <DialogHeader>
+          <div className="w-14 h-14 rounded-full bg-gold-500/15 flex items-center justify-center mx-auto mb-3 animate-scale-in">
+            <UserPlus size={24} className="text-gold-400" />
           </div>
-        </div>
-      )}
+          <DialogTitle>Add Customer</DialogTitle>
+        </DialogHeader>
+
+        <form onSubmit={handleAdd} className="space-y-4">
+          <div>
+            <label className="text-xs text-dark-400 mb-1.5 block font-medium">
+              Name <span className="text-gold-500">*</span>
+            </label>
+            <input
+              id="modal-customer-name"
+              type="text"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              placeholder="Customer name"
+              className="input-gold w-full px-4 py-3 rounded-xl text-sm"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="text-xs text-dark-400 mb-1.5 block font-medium">
+              Phone <span className="text-gold-500">*</span>
+            </label>
+            <input
+              id="modal-customer-phone"
+              type="tel"
+              value={form.phone}
+              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              placeholder="9876543210"
+              maxLength={10}
+              className="input-gold w-full px-4 py-3 rounded-xl text-sm"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-dark-400 mb-1.5 block font-medium">
+              Address
+            </label>
+            <input
+              id="modal-customer-address"
+              type="text"
+              value={form.address}
+              onChange={(e) => setForm({ ...form, address: e.target.value })}
+              placeholder="Enter address"
+              className="input-gold w-full px-4 py-3 rounded-xl text-sm"
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={submitting}
+            size="xl"
+            className="w-full mt-2"
+          >
+            {submitting ? (
+              <div className="w-5 h-5 border-2 border-dark-900/30 border-t-dark-900 rounded-full animate-spin" />
+            ) : (
+              <>
+                <UserPlus size={16} />
+                Add Customer
+              </>
+            )}
+          </Button>
+        </form>
+      </Dialog>
     </div>
   );
 }

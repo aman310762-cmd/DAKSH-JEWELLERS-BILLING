@@ -30,14 +30,38 @@ export const PURITY_METAL = {
 
 export const GST_RATE = 3;
 
+/** HSN Code Mapping */
+export const HSN_CODES = {
+  Gold: "7113",
+  Silver: "7114",
+  Diamond: "7102",
+};
+
+export const PURITY_TO_METAL = {
+  "24K": "Gold",
+  "22K": "Gold",
+  "18K": "Gold",
+  Silver: "Silver",
+  SterlingSilver: "Silver",
+};
+
+export function getHSNCode(purity, category) {
+  if (category === "Diamond") return HSN_CODES.Diamond;
+  const metal = PURITY_TO_METAL[purity];
+  return HSN_CODES[metal] || "7113";
+}
+
 export function calculateItemPrice(item) {
-  const { weight, ratePerGram, purity } = item;
+  const { weight, ratePerGram, purity, stoneCharges = 0 } = item;
   const purityFactor = PURITY_FACTORS[purity] || 1;
   const basePrice = weight * ratePerGram;
   const adjustedPrice = basePrice * purityFactor;
+  const hsnCode = getHSNCode(purity, item.category);
   return {
     basePrice: Math.round(basePrice * 100) / 100,
     adjustedPrice: Math.round(adjustedPrice * 100) / 100,
+    stoneCharges: Math.round((parseFloat(stoneCharges) || 0) * 100) / 100,
+    hsnCode,
   };
 }
 
@@ -47,12 +71,17 @@ export function calculateInvoice(
   makingChargesType = "fixed"
 ) {
   const calculatedItems = items.map((item) => {
-    const { basePrice, adjustedPrice } = calculateItemPrice(item);
-    return { ...item, basePrice, adjustedPrice };
+    const { basePrice, adjustedPrice, stoneCharges, hsnCode } = calculateItemPrice(item);
+    return { ...item, basePrice, adjustedPrice, stoneCharges, hsnCode };
   });
 
   const subtotal = calculatedItems.reduce(
     (sum, item) => sum + item.adjustedPrice,
+    0
+  );
+
+  const totalStoneCharges = calculatedItems.reduce(
+    (sum, item) => sum + (item.stoneCharges || 0),
     0
   );
 
@@ -63,7 +92,7 @@ export function calculateInvoice(
     makingCharges = makingChargesValue;
   }
 
-  const taxableAmount = subtotal + makingCharges;
+  const taxableAmount = subtotal + makingCharges + totalStoneCharges;
   const gstAmount = taxableAmount * (GST_RATE / 100);
   const totalAmount = taxableAmount + gstAmount;
 
@@ -71,6 +100,7 @@ export function calculateInvoice(
     items: calculatedItems,
     subtotal: Math.round(subtotal * 100) / 100,
     makingCharges: Math.round(makingCharges * 100) / 100,
+    stoneCharges: Math.round(totalStoneCharges * 100) / 100,
     makingChargesType,
     makingChargesValue,
     taxableAmount: Math.round(taxableAmount * 100) / 100,

@@ -5,6 +5,11 @@ import {
 import { getInvoices, sendWhatsApp } from "../api";
 import { formatCurrency, PURITY_LABELS } from "../billingLogic";
 import { downloadInvoicePDF } from "../components/PDFGenerator";
+import { Card, CardContent, CardTitle } from "../components/ui/card";
+import { Button } from "../components/ui/button";
+import { Badge } from "../components/ui/badge";
+import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "../components/ui/dialog";
+import { TableRowSkeleton } from "../components/ui/skeleton";
 import toast from "react-hot-toast";
 
 export default function InvoiceHistory() {
@@ -56,11 +61,14 @@ export default function InvoiceHistory() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
-          <div className="w-10 h-10 border-[3px] border-gold-500/20 border-t-gold-500 rounded-full animate-spin" />
-        </div>
+        <Card className="animate-fade-in-up" style={{ animationDelay: "200ms", opacity: 0 }}>
+          <CardContent className="pt-5 space-y-2">
+            {[...Array(6)].map((_, i) => <TableRowSkeleton key={i} />)}
+          </CardContent>
+        </Card>
       ) : invoices.length > 0 ? (
-        <div className="glass rounded-2xl overflow-hidden animate-fade-in-up" style={{ animationDelay: "200ms", opacity: 0 }}>
+        <Card className="overflow-hidden animate-fade-in-up" style={{ animationDelay: "200ms", opacity: 0 }}>
+          {/* Desktop Table */}
           <div className="hidden md:block overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -72,12 +80,12 @@ export default function InvoiceHistory() {
               </thead>
               <tbody className="divide-y divide-white/[0.03]">
                 {invoices.map((inv) => (
-                  <tr key={inv._id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="px-5 py-4"><span className="text-sm font-medium text-gold-400">{inv.invoiceNumber}</span></td>
-                    <td className="px-5 py-4"><p className="text-sm text-white">{inv.customerName}</p><p className="text-[10px] text-dark-500">+91 {inv.customerPhone}</p></td>
+                  <tr key={inv._id} className="hover:bg-white/[0.02] transition-colors group">
+                    <td className="px-5 py-4"><Badge variant="gold">{inv.invoiceNumber}</Badge></td>
+                    <td className="px-5 py-4"><p className="text-sm text-white font-medium">{inv.customerName}</p><p className="text-[10px] text-dark-500">+91 {inv.customerPhone}</p></td>
                     <td className="px-5 py-4 text-sm text-dark-400">{new Date(inv.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</td>
-                    <td className="px-5 py-4 text-sm text-dark-400">{inv.items.length}</td>
-                    <td className="px-5 py-4 text-right"><span className="text-sm font-bold text-gold-400">{formatCurrency(inv.totalAmount)}</span></td>
+                    <td className="px-5 py-4"><Badge variant="neutral">{inv.items.length} items</Badge></td>
+                    <td className="px-5 py-4 text-right"><span className="text-sm font-bold text-gold-400 tabular-nums">{formatCurrency(inv.totalAmount)}</span></td>
                     <td className="px-5 py-4">
                       <div className="flex items-center justify-center gap-1">
                         <button onClick={() => setSelectedInvoice(inv)} className="p-2 rounded-lg hover:bg-white/[0.05] text-dark-500 hover:text-white transition-all" title="View"><Eye size={15} /></button>
@@ -91,12 +99,16 @@ export default function InvoiceHistory() {
             </table>
           </div>
 
+          {/* Mobile Cards */}
           <div className="md:hidden divide-y divide-white/[0.03]">
             {invoices.map((inv) => (
               <div key={inv._id} className="p-4">
                 <div className="flex items-start justify-between mb-2">
-                  <div><span className="text-[10px] font-medium text-gold-400">{inv.invoiceNumber}</span><p className="text-sm font-medium text-white mt-0.5">{inv.customerName}</p></div>
-                  <span className="text-sm font-bold text-gold-400">{formatCurrency(inv.totalAmount)}</span>
+                  <div>
+                    <Badge variant="gold" className="mb-1">{inv.invoiceNumber}</Badge>
+                    <p className="text-sm font-medium text-white mt-1">{inv.customerName}</p>
+                  </div>
+                  <span className="text-sm font-bold text-gold-400 tabular-nums">{formatCurrency(inv.totalAmount)}</span>
                 </div>
                 <div className="flex items-center justify-between mt-3">
                   <span className="text-[10px] text-dark-500">{new Date(inv.createdAt).toLocaleDateString("en-IN")} · {inv.items.length} items</span>
@@ -109,7 +121,7 @@ export default function InvoiceHistory() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
       ) : (
         <div className="text-center py-20 text-dark-500 animate-fade-in">
           <Receipt size={48} className="mx-auto mb-4 opacity-15" />
@@ -118,14 +130,13 @@ export default function InvoiceHistory() {
       )}
 
       {/* Detail Modal */}
-      {selectedInvoice && (
-        <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-4 modal-overlay">
-          <div className="glass rounded-2xl p-6 lg:p-8 max-w-2xl w-full relative modal-content max-h-[90vh] overflow-y-auto">
-            <button onClick={() => setSelectedInvoice(null)} className="absolute top-4 right-4 text-dark-400 hover:text-white"><X size={20} /></button>
+      <Dialog open={!!selectedInvoice} onClose={() => setSelectedInvoice(null)} className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        {selectedInvoice && (
+          <>
             <div className="text-center mb-6 border-b border-gold-500/10 pb-6">
               <h2 className="font-display text-2xl font-bold text-gradient-gold">Daksh Jewellers</h2>
               <p className="text-[10px] text-dark-500 mt-1">Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019</p>
-              <div className="mt-3 inline-block px-3 py-1 rounded-full bg-gold-500/10 text-gold-400 text-xs font-medium">{selectedInvoice.invoiceNumber}</div>
+              <Badge variant="gold" className="mt-3">{selectedInvoice.invoiceNumber}</Badge>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
               <div><p className="text-dark-500 text-[10px] uppercase tracking-wider">Customer</p><p className="text-white font-medium mt-0.5">{selectedInvoice.customerName}</p></div>
@@ -160,17 +171,17 @@ export default function InvoiceHistory() {
                 <span className="text-xl font-bold text-gold-400">{formatCurrency(selectedInvoice.totalAmount)}</span>
               </div>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={() => handleDownload(selectedInvoice)} className="flex-1 btn-gold py-3.5 rounded-xl text-sm flex items-center justify-center gap-2">
+            <DialogFooter>
+              <Button onClick={() => handleDownload(selectedInvoice)} size="lg" className="flex-1">
                 <Download size={16} /> Download PDF
-              </button>
-              <button onClick={() => handleWhatsApp(selectedInvoice)} className="flex-1 py-3.5 rounded-xl text-sm flex items-center justify-center gap-2 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold transition-all">
+              </Button>
+              <Button onClick={() => handleWhatsApp(selectedInvoice)} variant="success" size="lg" className="flex-1">
                 <Send size={16} /> WhatsApp
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
+      </Dialog>
     </div>
   );
 }
