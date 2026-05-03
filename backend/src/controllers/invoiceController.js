@@ -68,14 +68,18 @@ exports.createInvoice = async (req, res) => {
         items: billing.items.map((item) => ({
           name: item.name,
           code: item.code || "",
+          category: item.category || "Gold",
           weight: item.weight,
           purity: item.purity,
           ratePerGram: item.ratePerGram,
           basePrice: item.basePrice,
           adjustedPrice: item.adjustedPrice,
+          stoneCharges: item.stoneCharges || 0,
+          hsnCode: item.hsnCode || "7113",
         })),
         subtotal: billing.subtotal,
         makingCharges: billing.makingCharges,
+        stoneCharges: billing.stoneCharges || 0,
         makingChargesType: billing.makingChargesType,
         makingChargesValue: billing.makingChargesValue,
         taxableAmount: billing.taxableAmount,
@@ -117,14 +121,18 @@ exports.createInvoice = async (req, res) => {
       items: billing.items.map((item) => ({
         name: item.name,
         code: item.code || "",
+        category: item.category || "Gold",
         weight: item.weight,
         purity: item.purity,
         ratePerGram: item.ratePerGram,
         basePrice: item.basePrice,
         adjustedPrice: item.adjustedPrice,
+        stoneCharges: item.stoneCharges || 0,
+        hsnCode: item.hsnCode || "7113",
       })),
       subtotal: billing.subtotal,
       makingCharges: billing.makingCharges,
+      stoneCharges: billing.stoneCharges || 0,
       makingChargesType: billing.makingChargesType,
       makingChargesValue: billing.makingChargesValue,
       taxableAmount: billing.taxableAmount,
@@ -314,5 +322,110 @@ exports.getDashboardStats = async (req, res) => {
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+};
+
+// Monthly trend data for analytics charts
+exports.getMonthlyTrend = async (req, res) => {
+  try {
+    const months = parseInt(req.query.months) || 6;
+
+    if (isInMemory()) {
+      // Build trend from in-memory data
+      const trend = [];
+      const now = new Date();
+      for (let i = months - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 0, 23, 59, 59);
+        const monthInvoices = store.getInvoices().filter((inv) => {
+          const dt = new Date(inv.createdAt);
+          return dt >= d && dt <= end;
+        });
+        trend.push({
+          month: d.toLocaleString("en-IN", { month: "short" }),
+          year: d.getFullYear(),
+          revenue: monthInvoices.reduce((s, inv) => s + (inv.totalAmount || 0), 0),
+          invoices: monthInvoices.length,
+          customers: new Set(monthInvoices.map((inv) => inv.customerPhone)).size,
+        });
+      }
+      return res.json(trend);
+    }
+
+    // MongoDB aggregation for monthly trend
+    const pipeline = [
+      {
+        $match: {
+          createdAt: {
+            $gte: new Date(new Date().setMonth(new Date().getMonth() - months)),
+          },
+        },
+      },
+      {
+        $group: {
+          _id: { month: { $month: "$createdAt" }, year: { $year: "$createdAt" } },
+          revenue: { $sum: "$totalAmount" },
+          invoices: { $sum: 1 },
+          customers: { $addToSet: "$customerPhone" },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1 } },
+    ];
+
+    const results = await Invoice.aggregate(pipeline);
+    const monthNames = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    const trend = results.map((r) => ({
+      month: monthNames[r._id.month],
+      year: r._id.year,
+      revenue: Math.round(r.revenue * 100) / 100,
+      invoices: r.invoices,
+      customers: r.customers.length,
+    }));
+
+    res.json(trend);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Live gold/silver rate proxy (Phase 5)
+exports.getLiveRates = async (req, res) => {
+  try {
+    // Try fetching from a public API
+    const response = await fetch("https://www.goldapi.io/api/XAU/INR", {
+      headers: { "x-access-token": process.env.GOLD_API_KEY || "" },
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      return res.json({
+        gold24K: Math.round(data.price_gram_24k || 0),
+        gold22K: Math.round(data.price_gram_22k || 0),
+        gold18K: Math.round(data.price_gram_18k || 0),
+        silver: Math.round(data.price_gram_24k ? data.price_gram_24k / 80 : 0), // approximate
+        timestamp: new Date().toISOString(),
+        source: "goldapi.io",
+      });
+    }
+
+    // Fallback: return reasonable defaults
+    res.json({
+      gold24K: 7200,
+      gold22K: 6600,
+      gold18K: 5400,
+      silver: 95,
+      timestamp: new Date().toISOString(),
+      source: "default",
+    });
+  } catch {
+    res.json({
+      gold24K: 7200,
+      gold22K: 6600,
+      gold18K: 5400,
+      silver: 95,
+      timestamp: new Date().toISOString(),
+      source: "default",
+    });
   }
 };

@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const invoiceItemSchema = new mongoose.Schema({
   name: { type: String, required: true },
   code: { type: String, default: "" },
+  category: { type: String, enum: ["Gold", "Silver", "Diamond", "Other"], default: "Gold" },
   weight: { type: Number, required: true },
   purity: {
     type: String,
@@ -12,6 +13,8 @@ const invoiceItemSchema = new mongoose.Schema({
   ratePerGram: { type: Number, required: true },
   basePrice: { type: Number, required: true },
   adjustedPrice: { type: Number, required: true },
+  stoneCharges: { type: Number, default: 0 },
+  hsnCode: { type: String, default: "7113" },
 });
 
 const invoiceSchema = new mongoose.Schema(
@@ -32,6 +35,7 @@ const invoiceSchema = new mongoose.Schema(
     items: [invoiceItemSchema],
     subtotal: { type: Number, required: true },
     makingCharges: { type: Number, default: 0 },
+    stoneCharges: { type: Number, default: 0 },
     makingChargesType: {
       type: String,
       enum: ["fixed", "percentage"],

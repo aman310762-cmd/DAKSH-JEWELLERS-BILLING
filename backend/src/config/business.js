@@ -1,15 +1,18 @@
 // Central business configuration for Daksh Jewellers
-// Used across invoices, dashboard, and PDF generation
+// Updated from actual invoice paper format
 
 const businessConfig = {
-  name: "Daksh Jewellers",
+  name: "DAKSH JEWELLERS",
   category: "Jewelry Store",
-  location: "Thara, Rajasthan",
-  address: "Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019",
+  dealsIn: "All Types of Gold, Silver & Diamond Jewellery",
+  address: "Shop No. 1, Rainwar Market, Near Hill View Garden, Vill. Thada (Alwar) Rajasthan",
+  location: "Thada (Alwar), Rajasthan",
   openingHours: "10:00 AM onwards",
-  phone: "+91 XXXXXXXXXX", // Update with actual phone
-  email: "daksh.jewellers@email.com", // Update with actual email
-  gstin: "XXXXXXXXXXXXXXXXX", // Update with actual GSTIN
+  proprietor: "Praveen Kumar",
+  phone: "9896424648",
+  gstin: "08CUXPK2325H1Z5",
+  stateCode: "08",
+  state: "Rajasthan",
   tagline: "Trusted Jewellers Since Generations",
 };
 

@@ -36,10 +36,40 @@ const PURITY_LABELS = {
 const GST_RATE = 3; // 3% GST on jewellery
 
 /**
+ * HSN Code Mapping for Jewellery
+ * Gold Jewellery → 7113
+ * Silver Jewellery → 7114
+ * Diamond Jewellery → 7102
+ */
+const HSN_CODES = {
+  Gold: "7113",
+  Silver: "7114",
+  Diamond: "7102",
+};
+
+// Map purity key to metal type for HSN lookup
+const PURITY_TO_METAL = {
+  "24K": "Gold",
+  "22K": "Gold",
+  "18K": "Gold",
+  Silver: "Silver",
+  SterlingSilver: "Silver",
+};
+
+/**
+ * Get HSN code for a purity type
+ */
+function getHSNCode(purity, category) {
+  if (category === "Diamond") return HSN_CODES.Diamond;
+  const metal = PURITY_TO_METAL[purity];
+  return HSN_CODES[metal] || "7113";
+}
+
+/**
  * Calculate billing for a single item
  */
 function calculateItemPrice(item) {
-  const { weight, ratePerGram, purity } = item;
+  const { weight, ratePerGram, purity, stoneCharges = 0 } = item;
 
   const purityFactor = PURITY_FACTORS[purity];
   if (!purityFactor) {
@@ -50,11 +80,14 @@ function calculateItemPrice(item) {
 
   const basePrice = weight * ratePerGram;
   const adjustedPrice = basePrice * purityFactor;
+  const hsnCode = getHSNCode(purity, item.category);
 
   return {
     basePrice: Math.round(basePrice * 100) / 100,
     adjustedPrice: Math.round(adjustedPrice * 100) / 100,
+    stoneCharges: Math.round((parseFloat(stoneCharges) || 0) * 100) / 100,
     purityFactor,
+    hsnCode,
   };
 }
 
@@ -67,18 +100,26 @@ function calculateInvoice(
   makingChargesType = "fixed"
 ) {
   const calculatedItems = items.map((item) => {
-    const { basePrice, adjustedPrice, purityFactor } =
+    const { basePrice, adjustedPrice, purityFactor, stoneCharges, hsnCode } =
       calculateItemPrice(item);
     return {
       ...item,
       basePrice,
       adjustedPrice,
+      stoneCharges,
+      hsnCode,
       purityFactor,
     };
   });
 
   const subtotal = calculatedItems.reduce(
     (sum, item) => sum + item.adjustedPrice,
+    0
+  );
+
+  // Total stone charges across all items
+  const totalStoneCharges = calculatedItems.reduce(
+    (sum, item) => sum + (item.stoneCharges || 0),
     0
   );
 
@@ -89,7 +130,8 @@ function calculateInvoice(
     makingCharges = makingChargesValue;
   }
 
-  const taxableAmount = subtotal + makingCharges;
+  // Formula: Final = (weight × rate × purity) + making + stone + GST
+  const taxableAmount = subtotal + makingCharges + totalStoneCharges;
   const gstAmount = taxableAmount * (GST_RATE / 100);
   const totalAmount = taxableAmount + gstAmount;
 
@@ -97,6 +139,7 @@ function calculateInvoice(
     items: calculatedItems,
     subtotal: Math.round(subtotal * 100) / 100,
     makingCharges: Math.round(makingCharges * 100) / 100,
+    stoneCharges: Math.round(totalStoneCharges * 100) / 100,
     makingChargesType,
     makingChargesValue,
     taxableAmount: Math.round(taxableAmount * 100) / 100,
@@ -112,4 +155,7 @@ module.exports = {
   PURITY_FACTORS,
   PURITY_LABELS,
   GST_RATE,
+  HSN_CODES,
+  PURITY_TO_METAL,
+  getHSNCode,
 };
