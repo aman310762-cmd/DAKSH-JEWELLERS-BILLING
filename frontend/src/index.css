@@ -43,10 +43,30 @@ body {
   background: #060606;
   color: #e8e8e8;
   min-height: 100vh;
-  line-height: 1.5;
+  line-height: 1.6;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+
+/* ========== FONT OVERLAP PREVENTION ========== */
+h1, h2, h3, h4, h5, h6 {
+  line-height: 1.3;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+p {
+  line-height: 1.6;
+  overflow-wrap: break-word;
+}
+
+/* Playfair Display needs extra line height to avoid overlap */
+.font-display,
+[class*="font-display"] {
+  line-height: 1.35 !important;
+  letter-spacing: -0.01em;
 }
 
 /* Scrollbar */
@@ -245,6 +265,8 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+  display: inline-block;
+  line-height: 1.35;
 }
 
 /* ========== PREMIUM BUTTON ========== */
@@ -254,6 +276,7 @@ body {
   font-weight: 700;
   font-family: "Inter", sans-serif;
   font-size: 14px;
+  line-height: 1.4;
   transition: all 0.3s ease;
   box-shadow: 0 4px 20px rgba(212,168,16,0.25);
   position: relative;
@@ -285,6 +308,7 @@ body {
   color: #e8e8e8;
   font-family: "Inter", sans-serif;
   font-size: 14px;
+  line-height: 1.5;
   transition: all 0.25s ease;
 }
 .input-gold:focus {
@@ -337,6 +361,19 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* ========== TEXT SAFETY — Prevent Overlap ========== */
+.text-safe {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.text-safe-wrap {
+  overflow-wrap: break-word;
+  word-break: break-word;
+  hyphens: auto;
+}
+
 /* ========== PRINT ========== */
 @media print {
   body { background: white; color: black; }
@@ -350,6 +387,20 @@ body {
 }
 @media (max-width: 1023px) {
   #main-content { margin-left: 0 !important; }
+}
+
+/* ========== RESPONSIVE FONT FIXES ========== */
+@media (max-width: 640px) {
+  /* Reduce heading sizes on mobile to prevent overlap */
+  .font-display {
+    font-size: clamp(1rem, 5vw, 1.5rem) !important;
+  }
+
+  /* Stat card text containment */
+  .stat-value {
+    font-size: 1rem !important;
+    line-height: 1.3 !important;
+  }
 }
 
 .transition-smooth { transition: all 0.3s ease; }

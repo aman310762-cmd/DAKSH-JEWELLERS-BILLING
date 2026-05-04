@@ -86,8 +86,8 @@ export default function Analytics() {
       {/* Header */}
       <div className="flex items-center justify-between animate-fade-in-down">
         <div>
-          <h1 className="text-2xl font-display font-bold text-gradient-gold">Analytics</h1>
-          <p className="text-sm text-dark-500 mt-1">Business performance overview</p>
+          <h1 className="text-2xl font-display font-bold text-gradient-gold" style={{ lineHeight: '1.35' }}>Analytics</h1>
+          <p className="text-sm text-dark-500" style={{ lineHeight: '1.5', marginTop: '4px' }}>Business performance overview</p>
         </div>
         <Badge variant="gold"><Sparkles size={10} /> Live Data</Badge>
       </div>

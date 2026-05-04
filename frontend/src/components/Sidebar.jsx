@@ -97,10 +97,10 @@ export default function Sidebar() {
             </div>
             {!isCollapsed && (
               <div className="animate-fade-in">
-                <h1 className="font-display text-xl font-bold text-gradient-gold leading-tight">
+                <h1 className="font-display text-xl font-bold text-gradient-gold" style={{ lineHeight: '1.35', marginBottom: '2px' }}>
                   Daksh
                 </h1>
-                <p className="text-[9px] text-gold-400/50 tracking-[0.25em] uppercase mt-0.5">
+                <p className="text-[9px] text-gold-400/50 tracking-[0.25em] uppercase" style={{ lineHeight: '1.3' }}>
                   Jewellers
                 </p>
               </div>

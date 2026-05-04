@@ -1,16 +1,16 @@
 const mongoose = require("mongoose");
-const { MongoMemoryServer } = require("mongodb-memory-server");
 
 let useInMemory = false;
 let mongoServer = null;
 
 const connectDB = async () => {
-  const externalUri = process.env.MONGO_URI;
+  // Support both MONGO_URI and MONGODB_URI (Render uses MONGODB_URI by default)
+  const externalUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
-  // 1. Try external MongoDB (Atlas or local) if URI is set explicitly
+  // 1. Try external MongoDB (Atlas or remote) if URI is set explicitly
   if (externalUri && externalUri !== "mongodb://localhost:27017/daksh-jewellers") {
     try {
-      await mongoose.connect(externalUri, { serverSelectionTimeoutMS: 5000 });
+      await mongoose.connect(externalUri, { serverSelectionTimeoutMS: 8000 });
       console.log(`✅ MongoDB Connected: ${mongoose.connection.host}`);
       return;
     } catch (err) {
@@ -31,15 +31,16 @@ const connectDB = async () => {
 
   // 3. Use mongodb-memory-server (embedded MongoDB - full Mongoose support)
   try {
+    const { MongoMemoryServer } = require("mongodb-memory-server");
     mongoServer = await MongoMemoryServer.create();
     const uri = mongoServer.getUri();
     await mongoose.connect(uri);
     console.log(`✅ Embedded MongoDB started at: ${uri}`);
     console.log("   ⚠️  Data will persist during this server session only");
-    console.log("   💡 For permanent data, set MONGODB_URI in .env to a MongoDB Atlas URL\n");
+    console.log("   💡 For permanent data, set MONGO_URI in env to a MongoDB Atlas URL\n");
   } catch (err) {
     console.warn(`⚠️  Embedded MongoDB also failed: ${err.message}`);
-    console.warn("📦 Falling back to basic in-memory storage (no aggregation support)\n");
+    console.warn("📦 Running without database — login still works, data will not persist.\n");
     useInMemory = true;
   }
 };

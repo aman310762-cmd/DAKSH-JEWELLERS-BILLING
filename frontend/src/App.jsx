@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { AuthProvider } from "./context/AuthContext";
@@ -64,6 +65,26 @@ function AnimatedRoutes() {
 function AppLayout() {
   const location = useLocation();
   const isLoginPage = location.pathname === "/login";
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  // Listen for sidebar collapse state changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setSidebarCollapsed(document.body.classList.contains("sidebar-collapsed"));
+    });
+    observer.observe(document.body, { attributes: true, attributeFilter: ["class"] });
+    return () => observer.disconnect();
+  }, []);
+
+  // Track viewport size
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const mainMarginLeft = isLoginPage ? 0 : isDesktop ? (sidebarCollapsed ? 80 : 268) : 0;
 
   return (
     <div className="min-h-screen" style={{ background: "#0a0a0a" }}>
@@ -72,9 +93,14 @@ function AppLayout() {
         <AnimatedRoutes />
       ) : (
         <main
-          className="min-h-screen p-4 sm:p-6 lg:p-8 pt-16 lg:pt-8"
-          style={{ marginLeft: "0px" }}
+          className="min-h-screen"
           id="main-content"
+          style={{
+            marginLeft: `${mainMarginLeft}px`,
+            padding: isDesktop ? '32px' : '16px',
+            paddingTop: isDesktop ? '32px' : '64px',
+            transition: 'margin-left 0.3s ease',
+          }}
         >
           <AnimatedRoutes />
         </main>

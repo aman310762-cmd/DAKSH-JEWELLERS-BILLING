@@ -64,10 +64,10 @@ export default function Customers() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-fade-in-down">
         <div>
-          <h1 className="text-2xl font-display font-bold text-gradient-gold">
+          <h1 className="text-2xl font-display font-bold text-gradient-gold" style={{ lineHeight: '1.35' }}>
             Customers
           </h1>
-          <p className="text-sm text-dark-500 mt-1">
+          <p className="text-sm text-dark-500" style={{ lineHeight: '1.5', marginTop: '4px' }}>
             {customers.length} total customers
           </p>
         </div>

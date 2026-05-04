@@ -270,8 +270,8 @@ export default function CreateInvoice() {
       {/* Page Header */}
       <div className="flex items-center justify-between animate-fade-in-down">
         <div>
-          <h1 className="text-2xl font-display font-bold text-gradient-gold">Create Invoice</h1>
-          <p className="text-sm text-dark-500 mt-1">Fill details below and generate invoice</p>
+          <h1 className="text-2xl font-display font-bold text-gradient-gold" style={{ lineHeight: '1.35' }}>Create Invoice</h1>
+          <p className="text-sm text-dark-500" style={{ lineHeight: '1.5', marginTop: '4px' }}>Fill details below and generate invoice</p>
         </div>
         {savedInvoice && (
           <button onClick={resetForm} className="text-sm px-4 py-2 rounded-xl bg-dark-700/50 text-dark-300 hover:text-gold-400 hover:bg-dark-700 transition-all flex items-center gap-2">
@@ -574,8 +574,8 @@ export default function CreateInvoice() {
             </h2>
 
             <div className="bg-gradient-to-br from-dark-800 to-dark-900 rounded-xl p-4 mb-4 text-center border border-gold-500/8">
-              <h3 className="font-display text-lg font-bold text-gradient-gold">Daksh Jewellers</h3>
-              <p className="text-[10px] text-dark-500 mt-1">Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019</p>
+              <h3 className="font-display text-lg font-bold text-gradient-gold" style={{ lineHeight: '1.35' }}>Daksh Jewellers</h3>
+              <p className="text-[10px] text-dark-500" style={{ lineHeight: '1.5', marginTop: '4px' }}>Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019</p>
             </div>
 
             {billing ? (

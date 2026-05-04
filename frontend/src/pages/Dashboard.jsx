@@ -47,14 +47,14 @@ function StatCard({ label, value, sub, icon: Icon, gradient, delay = 0, trend })
       style={{ animationDelay: `${delay}ms`, opacity: 0 }}
     >
       <div className="flex items-start justify-between gap-3 relative z-10">
-        <div className="min-w-0 flex-1">
-          <p className="text-[10px] text-dark-500 uppercase tracking-wider font-medium leading-tight">
+        <div className="min-w-0 flex-1 overflow-hidden">
+          <p className="text-[10px] text-dark-500 uppercase tracking-wider font-medium" style={{ lineHeight: '1.4', marginBottom: '4px' }}>
             {label}
           </p>
-          <p className="text-base lg:text-lg font-bold mt-1 text-white leading-tight break-all">
+          <p className="text-sm sm:text-base lg:text-lg font-bold text-white truncate" style={{ lineHeight: '1.35', marginBottom: '4px' }}>
             {typeof value === "string" ? value : <AnimatedCounter value={value} />}
           </p>
-          <p className="text-[10px] text-dark-600 mt-1 leading-tight">{sub}</p>
+          <p className="text-[10px] text-dark-600 truncate" style={{ lineHeight: '1.4' }}>{sub}</p>
         </div>
         <div
           className={`w-9 h-9 lg:w-10 lg:h-10 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center shrink-0 shadow-md`}
@@ -141,12 +141,12 @@ export default function Dashboard() {
           <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-gold-400 via-gold-500 to-gold-700 flex items-center justify-center shrink-0 shadow-lg shadow-gold-500/20">
             <Gem size={24} className="text-dark-900" />
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-xs text-dark-500 font-medium">{greeting} 👋</p>
-            <h1 className="font-display text-xl lg:text-2xl font-bold text-gradient-gold mt-0.5">
+          <div className="flex-1 min-w-0 overflow-hidden">
+            <p className="text-xs text-dark-500 font-medium" style={{ lineHeight: '1.5', marginBottom: '2px' }}>{greeting} 👋</p>
+            <h1 className="font-display text-xl lg:text-2xl font-bold text-gradient-gold" style={{ lineHeight: '1.35', marginBottom: '4px' }}>
               {biz.name}
             </h1>
-            <p className="text-xs text-dark-500 mt-1 truncate">
+            <p className="text-xs text-dark-500 truncate" style={{ lineHeight: '1.5' }}>
               <MapPin size={11} className="inline text-gold-500/60 mr-1" />
               {biz.address}
               <span className="mx-2">·</span>

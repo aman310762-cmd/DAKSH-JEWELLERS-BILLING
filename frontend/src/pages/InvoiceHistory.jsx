@@ -49,8 +49,8 @@ export default function InvoiceHistory() {
   return (
     <div className="space-y-6">
       <div className="animate-fade-in-down">
-        <h1 className="text-2xl font-display font-bold text-gradient-gold">Invoice History</h1>
-        <p className="text-sm text-dark-500 mt-1">{invoices.length} total invoices</p>
+        <h1 className="text-2xl font-display font-bold text-gradient-gold" style={{ lineHeight: '1.35' }}>Invoice History</h1>
+        <p className="text-sm text-dark-500" style={{ lineHeight: '1.5', marginTop: '4px' }}>{invoices.length} total invoices</p>
       </div>
 
       <div className="relative animate-fade-in-up" style={{ animationDelay: "100ms", opacity: 0 }}>
@@ -134,8 +134,8 @@ export default function InvoiceHistory() {
         {selectedInvoice && (
           <>
             <div className="text-center mb-6 border-b border-gold-500/10 pb-6">
-              <h2 className="font-display text-2xl font-bold text-gradient-gold">Daksh Jewellers</h2>
-              <p className="text-[10px] text-dark-500 mt-1">Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019</p>
+              <h2 className="font-display text-2xl font-bold text-gradient-gold" style={{ lineHeight: '1.35' }}>Daksh Jewellers</h2>
+              <p className="text-[10px] text-dark-500" style={{ lineHeight: '1.5', marginTop: '4px' }}>Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019</p>
               <Badge variant="gold" className="mt-3">{selectedInvoice.invoiceNumber}</Badge>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-6 text-sm">

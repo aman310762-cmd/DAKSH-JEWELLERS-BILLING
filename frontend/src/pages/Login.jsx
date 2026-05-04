@@ -42,25 +42,25 @@ export default function Login() {
           <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-gold-400 via-gold-500 to-gold-700 flex items-center justify-center mx-auto shadow-2xl shadow-gold-500/20 relative">
             <Gem size={36} className="text-dark-900" />
           </div>
-          <h1 className="font-display text-3xl font-bold text-gradient-gold mt-6">
+          <h1 className="font-display text-3xl font-bold text-gradient-gold" style={{ lineHeight: '1.35', marginTop: '20px', marginBottom: '8px' }}>
             Daksh Jewellers
           </h1>
-          <p className="text-sm text-dark-500 mt-2">Premium Billing System</p>
+          <p className="text-sm text-dark-500" style={{ lineHeight: '1.5' }}>Premium Billing System</p>
         </div>
 
         {/* Login Card */}
-        <div className="glass rounded-2xl p-8 animate-scale-in">
-          <div className="text-center mb-6">
-            <div className="w-10 h-10 rounded-xl bg-gold-500/10 flex items-center justify-center mx-auto mb-3">
+        <div className="glass rounded-2xl animate-scale-in" style={{ padding: '32px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+            <div className="w-10 h-10 rounded-xl bg-gold-500/10 flex items-center justify-center mx-auto" style={{ marginBottom: '12px' }}>
               <Shield size={18} className="text-gold-400" />
             </div>
-            <h2 className="text-lg font-bold text-white">Admin Login</h2>
-            <p className="text-xs text-dark-500 mt-1">Enter your credentials to continue</p>
+            <h2 className="text-lg font-bold text-white" style={{ lineHeight: '1.4', marginBottom: '4px' }}>Admin Login</h2>
+            <p className="text-xs text-dark-500" style={{ lineHeight: '1.5' }}>Enter your credentials to continue</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div>
-              <label className="text-xs text-dark-400 mb-1.5 block font-medium">
+              <label className="text-xs text-dark-400 font-medium" style={{ display: 'block', marginBottom: '8px', lineHeight: '1.5' }}>
                 USERNAME <span className="text-gold-500">*</span>
               </label>
               <div className="relative">
@@ -70,7 +70,8 @@ export default function Login() {
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
                   placeholder="Enter username"
-                  className="input-gold w-full pl-10 pr-4 py-3 rounded-xl text-sm"
+                  className="input-gold w-full rounded-xl text-sm"
+                  style={{ paddingLeft: '40px', paddingRight: '16px', paddingTop: '12px', paddingBottom: '12px' }}
                   autoComplete="username"
                   autoFocus
                 />
@@ -78,7 +79,7 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="text-xs text-dark-400 mb-1.5 block font-medium">
+              <label className="text-xs text-dark-400 font-medium" style={{ display: 'block', marginBottom: '8px', lineHeight: '1.5' }}>
                 PASSWORD <span className="text-gold-500">*</span>
               </label>
               <div className="relative">
@@ -88,7 +89,8 @@ export default function Login() {
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   placeholder="••••••••"
-                  className="input-gold w-full pl-10 pr-12 py-3 rounded-xl text-sm"
+                  className="input-gold w-full rounded-xl text-sm"
+                  style={{ paddingLeft: '40px', paddingRight: '48px', paddingTop: '12px', paddingBottom: '12px' }}
                   autoComplete="current-password"
                 />
                 <button
@@ -104,7 +106,8 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-gold py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+              className="w-full btn-gold rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+              style={{ paddingTop: '14px', paddingBottom: '14px', marginTop: '4px' }}
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-dark-900/30 border-t-dark-900 rounded-full animate-spin" />
