@@ -18,7 +18,10 @@ app.use(cors({
   origin: isProduction
     ? [
         "https://daksh-jewellers.vercel.app",
+        "https://dakshjewellersbilling.in",
+        "https://www.dakshjewellersbilling.in",
         /\.vercel\.app$/,
+        /dakshjewellersbilling\.in$/,
       ]
     : true,
   credentials: true,
