@@ -1,0 +1,31 @@
+# Render Blueprint — Daksh Jewellers Backend
+# Place this in the repo root for Render auto-detection
+
+services:
+  - type: web
+    name: daksh-jewellers-billing
+    runtime: node
+    region: oregon
+    plan: free
+    rootDir: backend
+    buildCommand: npm install --production
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: RENDER
+        value: "true"
+      - key: MONGO_URI
+        sync: false  # Set manually in Render dashboard
+      - key: JWT_SECRET
+        sync: false  # Set manually in Render dashboard
+      - key: JWT_EXPIRES_IN
+        value: "7d"
+      - key: ADMIN_USERNAME
+        value: "Parveen@123"
+      - key: ADMIN_PASSWORD
+        sync: false  # Set manually in Render dashboard
+      - key: OWNER_PHONE
+        value: "6375625863"
+    healthCheckPath: /api/health
+    autoDeploy: true

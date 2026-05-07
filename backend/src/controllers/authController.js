@@ -1,9 +1,10 @@
 const User = require("../models/User");
+const bcrypt = require("bcryptjs");
 const { generateToken } = require("../middleware/auth");
 
 // Fixed admin credentials — ONLY this user can login
-const ADMIN_EMAIL = "parveen@123";
-const ADMIN_PASSWORD = "Focused123";
+const ADMIN_EMAIL = (process.env.ADMIN_USERNAME || "Parveen@123").toLowerCase();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Focused123";
 const ADMIN_NAME = "Praveen Kumar";
 
 /**
@@ -27,23 +28,25 @@ exports.login = async (req, res) => {
       return res.status(400).json({ error: "Username and password are required" });
     }
 
-    // Check against fixed credentials
-    if (email.toLowerCase() !== ADMIN_EMAIL.toLowerCase() || password !== ADMIN_PASSWORD) {
+    // Check against fixed credentials (case-insensitive username)
+    if (email.toLowerCase() !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
       return res.status(401).json({ error: "Invalid username or password" });
     }
 
-    // Try to find or create admin user in DB
+    // Try to find admin user in DB
     let user;
     try {
-      user = await User.findOne({ email: ADMIN_EMAIL.toLowerCase() });
+      user = await User.findOne({ email: ADMIN_EMAIL });
       if (!user) {
+        // Create admin if doesn't exist
         user = new User({
           name: ADMIN_NAME,
-          email: ADMIN_EMAIL.toLowerCase(),
+          email: ADMIN_EMAIL,
           password: ADMIN_PASSWORD,
           role: "admin",
         });
         await user.save();
+        console.log("✅ Admin user created during login");
       }
     } catch (dbErr) {
       // MongoDB is not connected — use a synthetic user object for JWT
@@ -51,7 +54,7 @@ exports.login = async (req, res) => {
       user = {
         _id: "admin-fallback-id",
         name: ADMIN_NAME,
-        email: ADMIN_EMAIL.toLowerCase(),
+        email: ADMIN_EMAIL,
         role: "admin",
         toJSON() {
           return { _id: this._id, name: this.name, email: this.email, role: this.role };
@@ -70,6 +73,14 @@ exports.login = async (req, res) => {
     console.error("Login error:", error);
     res.status(500).json({ error: error.message });
   }
+};
+
+/**
+ * POST /api/auth/logout
+ * Client-side logout (JWT is stateless, but we acknowledge the request)
+ */
+exports.logout = async (req, res) => {
+  res.json({ message: "Logged out successfully" });
 };
 
 /**
