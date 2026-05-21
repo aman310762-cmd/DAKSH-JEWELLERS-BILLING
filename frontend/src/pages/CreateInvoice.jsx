@@ -425,7 +425,7 @@ export default function CreateInvoice() {
               )}
             </h2>
 
-            {/* Rate Cards Grid */}
+            {/* Rate Cards Grid — ALL INCLUSIVE rates */}
             {liveRatesData && (
               <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
                 {[
@@ -438,21 +438,16 @@ export default function CreateInvoice() {
                   <div key={label} className={`bg-gradient-to-br ${color} border rounded-xl p-2.5 text-center`}>
                     <p className="text-[9px] text-dark-400 uppercase tracking-wider mb-1">{label}</p>
                     <p className={`text-sm font-bold ${textColor}`}>₹{value ? value.toLocaleString("en-IN") : "—"}</p>
-                    <p className="text-[8px] text-dark-600 mt-0.5">per gram</p>
+                    <p className="text-[7px] text-dark-600 mt-0.5">per gram · incl. all charges</p>
                   </div>
                 ))}
               </div>
             )}
 
-            {/* Charges info */}
-            {liveRatesData?.premiums && (
-              <div className="bg-white/[0.02] rounded-lg px-3 py-2 mb-4">
-                <p className="text-[9px] text-dark-500 mb-1">
-                  <span className="font-semibold text-dark-400">Rates include:</span>{" "}
-                  MCX Premium (₹{liveRatesData.premiums.gold.mcxToSpot}/g) + RTGS Charges (₹{liveRatesData.premiums.gold.rtgsCharges}/g) + Refinery (₹{liveRatesData.premiums.gold.refineryMargin}/g) = <span className="text-gold-400 font-semibold">₹{liveRatesData.premiums.gold.total}/g total premium</span>
-                </p>
-              </div>
-            )}
+            {/* All-inclusive note */}
+            <p className="text-[9px] text-dark-500 mb-4 px-1">
+              ✓ Rates include MCX premium, import duty, RTGS charges & dealer margin — <span className="text-gold-400 font-semibold">ready to bill, no extra maths needed</span>
+            </p>
 
             {/* Editable Rate Inputs */}
             <h3 className="text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wider">Set Today's Billing Rate</h3>
@@ -460,18 +455,18 @@ export default function CreateInvoice() {
               <div>
                 <label className="text-xs text-dark-400 mb-1.5 block font-medium">Gold Rate (₹/g)</label>
                 <input type="number" value={dailyGoldRate} onChange={(e) => handleDailyGoldRate(e.target.value)}
-                  placeholder="e.g. 7200" className="input-gold w-full px-4 py-3 rounded-xl text-sm" />
+                  placeholder="e.g. 15000" className="input-gold w-full px-4 py-3 rounded-xl text-sm" />
               </div>
               <div>
                 <label className="text-xs text-dark-400 mb-1.5 block font-medium">Silver Rate (₹/g)</label>
                 <input type="number" value={dailySilverRate} onChange={(e) => handleDailySilverRate(e.target.value)}
-                  placeholder="e.g. 95" className="input-gold w-full px-4 py-3 rounded-xl text-sm" />
+                  placeholder="e.g. 115" className="input-gold w-full px-4 py-3 rounded-xl text-sm" />
               </div>
             </div>
             <p className="text-[10px] text-dark-600 mt-2">
               {liveRatesSource && liveRatesSource !== "default"
-                ? "Live rates auto-fetched. Billing rate auto-fills — you can override per item."
-                : "Set today's rate — auto-fills for new items. Can override per item. Rates auto-refresh every 5 min."}
+                ? "Live rates auto-fetched (incl. all charges). You can still override per item."
+                : "Set today's rate — auto-fills for new items. Can override per item."}
             </p>
           </div>
 

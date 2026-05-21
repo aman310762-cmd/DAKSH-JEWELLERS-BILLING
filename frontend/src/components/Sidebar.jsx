@@ -185,18 +185,29 @@ export default function Sidebar() {
         </nav>
 
         {/* Theme toggle + Collapse toggle (desktop only) */}
-        <div className="hidden lg:flex items-center gap-1 px-3 pb-2">
-          <button
-            onClick={() => setIsDark(!isDark)}
-            className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-dark-500 hover:text-gold-400 hover:bg-white/[0.03] transition-all text-xs flex-1"
-            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          >
-            {isDark ? <Sun size={14} /> : <Moon size={14} />}
-            {!isCollapsed && <span className="text-[10px]">{isDark ? "Light" : "Dark"}</span>}
-          </button>
+        <div className="hidden lg:block px-3 pb-2 space-y-1">
+          {/* Sliding toggle switch */}
+          <div className={cn("flex items-center gap-2 py-1.5 rounded-lg", isCollapsed ? "justify-center" : "px-2")}>
+            {!isCollapsed && <Sun size={12} className={cn("transition-colors", !isDark ? "text-gold-400" : "text-dark-600")} />}
+            <button
+              onClick={() => setIsDark(!isDark)}
+              className="relative w-10 h-[22px] rounded-full transition-colors duration-300 cursor-pointer flex-shrink-0"
+              style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(212,168,16,0.4)' }}
+              title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              <div
+                className="absolute top-[3px] w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300 flex items-center justify-center"
+                style={{ left: isDark ? '3px' : '23px' }}
+              >
+                {isDark ? <Moon size={9} className="text-dark-700" /> : <Sun size={9} className="text-amber-500" />}
+              </div>
+            </button>
+            {!isCollapsed && <Moon size={12} className={cn("transition-colors", isDark ? "text-gold-400" : "text-dark-600")} />}
+          </div>
+          {/* Collapse toggle */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-dark-500 hover:text-gold-400 hover:bg-white/[0.03] transition-all text-xs flex-1"
+            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-dark-500 hover:text-gold-400 hover:bg-white/[0.03] transition-all text-xs"
           >
             {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             {!isCollapsed && <span className="text-[10px]">Collapse</span>}
@@ -224,13 +235,22 @@ export default function Sidebar() {
                 <span>Logout</span>
               </button>
               {/* Mobile theme toggle */}
-              <button
-                onClick={() => setIsDark(!isDark)}
-                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-dark-500 hover:text-gold-400 hover:bg-white/[0.03] transition-all text-[11px] lg:hidden"
-              >
-                {isDark ? <Sun size={13} /> : <Moon size={13} />}
-                <span>{isDark ? "Light Mode" : "Dark Mode"}</span>
-              </button>
+              <div className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg lg:hidden">
+                <Sun size={13} className={cn("transition-colors", !isDark ? "text-gold-400" : "text-dark-600")} />
+                <button
+                  onClick={() => setIsDark(!isDark)}
+                  className="relative w-10 h-[22px] rounded-full transition-colors duration-300 cursor-pointer flex-shrink-0"
+                  style={{ background: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(212,168,16,0.4)' }}
+                >
+                  <div
+                    className="absolute top-[3px] w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300 flex items-center justify-center"
+                    style={{ left: isDark ? '3px' : '23px' }}
+                  >
+                    {isDark ? <Moon size={9} className="text-dark-700" /> : <Sun size={9} className="text-amber-500" />}
+                  </div>
+                </button>
+                <Moon size={13} className={cn("transition-colors", isDark ? "text-gold-400" : "text-dark-600")} />
+              </div>
             </>
           ) : (
             <button

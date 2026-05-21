@@ -87,7 +87,7 @@ function AppLayout() {
   const mainMarginLeft = isLoginPage ? 0 : isDesktop ? (sidebarCollapsed ? 80 : 268) : 0;
 
   return (
-    <div className="min-h-screen" style={{ background: "#0a0a0a" }}>
+    <div className="min-h-screen bg-dark-900">
       {!isLoginPage && <Sidebar />}
       {isLoginPage ? (
         <AnimatedRoutes />

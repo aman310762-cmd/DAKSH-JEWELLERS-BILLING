@@ -121,13 +121,16 @@ function spotToRetail(spotPerGram) {
 }
 
 function spotToRetailSilver(spotPerGram) {
-  const withDuty = spotPerGram * (1 + 7.5 / 100); // lower import duty for silver
-  return Math.round(withDuty + 4); // small dealer premium
+  // Silver import duty in India: 15% (aligned with gold since Budget 2024)
+  // Plus MCX premium + dealer margin
+  const withDuty = spotPerGram * (1 + 15 / 100);
+  return Math.round(withDuty + 10); // ₹10/g MCX + dealer premium
 }
 
 function spotToRetailPlatinum(spotPerGram) {
-  const withDuty = spotPerGram * (1 + 12.5 / 100);
-  return Math.round(withDuty + 200);
+  // Platinum import duty: 15%
+  const withDuty = spotPerGram * (1 + 15 / 100);
+  return Math.round(withDuty + 250); // ₹250/g refinery + dealer premium
 }
 
 /**
@@ -138,13 +141,13 @@ function getDefaultRates() {
     gold24K: 15500,
     gold22K: 14200,
     gold18K: 11625,
-    silver: 115,
-    platinum: 4500,
+    silver: 280,
+    platinum: 7200,
     gold24KSpot: 13400,
     gold22KSpot: 12275,
     gold18KSpot: 10050,
-    silverSpot: 107,
-    platinumSpot: 3900,
+    silverSpot: 234,
+    platinumSpot: 6000,
     premiums: {
       gold: {
         importDutyPct: INDIA_PREMIUM.importDutyPct,
