@@ -42,9 +42,16 @@ const invoiceSchema = new mongoose.Schema(
       default: "fixed",
     },
     makingChargesValue: { type: Number, default: 0 },
+    discount: { type: Number, default: 0 },
+    discountType: {
+      type: String,
+      enum: ["fixed", "percentage"],
+      default: "fixed",
+    },
+    discountValue: { type: Number, default: 0 },
     taxableAmount: { type: Number, required: true },
-    gstRate: { type: Number, default: 3 },
-    gstAmount: { type: Number, required: true },
+    gstRate: { type: Number, default: 0 },
+    gstAmount: { type: Number, default: 0 },
     totalAmount: { type: Number, required: true },
     status: {
       type: String,

@@ -16,14 +16,14 @@ import {
   Phone,
   IndianRupee,
 } from "lucide-react";
-import { createInvoice, getCustomers, getCustomerByPhone, sendWhatsApp } from "../api";
+import { createInvoice, getCustomers, getCustomerByPhone } from "../api";
 import {
   PURITY_LABELS,
   PURITY_METAL,
   calculateInvoice,
   formatCurrency,
 } from "../billingLogic";
-import { downloadInvoicePDF } from "../components/PDFGenerator";
+import { downloadInvoicePDF, shareInvoiceViaWhatsApp } from "../components/PDFGenerator";
 import { Card, CardContent, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -44,32 +44,42 @@ export default function CreateInvoice() {
   const [items, setItems] = useState([{ ...emptyItem }]);
   const [makingChargesValue, setMakingChargesValue] = useState("");
   const [makingChargesType, setMakingChargesType] = useState("fixed");
+  const [discountValue, setDiscountValue] = useState("");
+  const [discountType, setDiscountType] = useState("fixed");
   const [billing, setBilling] = useState(null);
   const [submitting, setSubmitting] = useState(false);
   const [savedInvoice, setSavedInvoice] = useState(null);
   const [customerSuggestions, setCustomerSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
-  // NEW: Daily rate fields
+  // Daily rate fields
   const [dailyGoldRate, setDailyGoldRate] = useState("");
   const [dailySilverRate, setDailySilverRate] = useState("");
 
-  // NEW: Preview modal before final save
+  // Preview modal before final save
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   // Success modal after save
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [liveRatesSource, setLiveRatesSource] = useState(null);
+  const [liveRatesData, setLiveRatesData] = useState(null);
 
-  // Phase 5: Auto-fetch live rates on mount
-  useEffect(() => {
+  // Fetch live rates on mount + auto-refresh every 5 minutes
+  const fetchRates = useCallback(() => {
     import("../api").then(({ getLiveRates }) => {
       getLiveRates().then(({ data }) => {
+        setLiveRatesData(data);
         if (data.gold22K && !dailyGoldRate) setDailyGoldRate(String(data.gold22K));
         if (data.silver && !dailySilverRate) setDailySilverRate(String(data.silver));
         setLiveRatesSource(data.source);
       }).catch(() => {});
     });
   }, []);
+
+  useEffect(() => {
+    fetchRates();
+    const interval = setInterval(fetchRates, 5 * 60 * 1000); // refresh every 5 min
+    return () => clearInterval(interval);
+  }, [fetchRates]);
 
   // Live auto-calculation (FIX #5)
   const recalculate = useCallback(() => {
@@ -91,10 +101,12 @@ export default function CreateInvoice() {
     const result = calculateInvoice(
       parsed,
       parseFloat(makingChargesValue) || 0,
-      makingChargesType
+      makingChargesType,
+      parseFloat(discountValue) || 0,
+      discountType
     );
     setBilling(result);
-  }, [items, makingChargesValue, makingChargesType]);
+  }, [items, makingChargesValue, makingChargesType, discountValue, discountType]);
 
   useEffect(() => { recalculate(); }, [recalculate]);
 
@@ -219,6 +231,8 @@ export default function CreateInvoice() {
         })),
         makingChargesValue: parseFloat(makingChargesValue) || 0,
         makingChargesType,
+        discountValue: parseFloat(discountValue) || 0,
+        discountType,
       };
 
       const { data } = await createInvoice(payload);
@@ -246,10 +260,17 @@ export default function CreateInvoice() {
   const handleWhatsApp = async () => {
     if (!savedInvoice) return;
     try {
-      const { data } = await sendWhatsApp(savedInvoice._id);
-      if (data.whatsappUrl) window.open(data.whatsappUrl, "_blank");
-      toast.success("WhatsApp message ready!");
-    } catch { toast.error("Failed to send WhatsApp"); }
+      const result = await shareInvoiceViaWhatsApp(savedInvoice);
+      if (result.method === "share") {
+        toast.success("PDF shared via WhatsApp!");
+      } else if (result.method === "download-and-chat") {
+        toast.success("PDF downloaded! Attach it in the WhatsApp chat that just opened.", { duration: 5000 });
+      } else if (result.method === "cancelled") {
+        // User cancelled share dialog
+      } else {
+        toast.success("WhatsApp opened!");
+      }
+    } catch { toast.error("Failed to share on WhatsApp"); }
   };
 
   const resetForm = () => {
@@ -257,6 +278,8 @@ export default function CreateInvoice() {
     setItems([{ ...emptyItem }]);
     setMakingChargesValue("");
     setMakingChargesType("fixed");
+    setDiscountValue("");
+    setDiscountType("fixed");
     setBilling(null);
     setSavedInvoice(null);
     setShowSuccessModal(false);
@@ -307,8 +330,8 @@ export default function CreateInvoice() {
               <div className="border-t border-white/[0.05] pt-2 space-y-1">
                 <div className="flex justify-between text-xs"><span className="text-dark-500">Metal Value</span><span className="text-dark-200">{formatCurrency(billing.subtotal)}</span></div>
                 <div className="flex justify-between text-xs"><span className="text-dark-500">Making Charges</span><span className="text-dark-200">{formatCurrency(billing.makingCharges)}</span></div>
-                <div className="flex justify-between text-xs"><span className="text-dark-500">Stone Charges</span><span className="text-dark-200">{formatCurrency(billing.stoneCharges || 0)}</span></div>
-                <div className="flex justify-between text-xs"><span className="text-dark-500">GST (3%)</span><span className="text-dark-200">{formatCurrency(billing.gstAmount)}</span></div>
+                {billing.stoneCharges > 0 && <div className="flex justify-between text-xs"><span className="text-dark-500">Stone Charges</span><span className="text-dark-200">{formatCurrency(billing.stoneCharges)}</span></div>}
+                {billing.discount > 0 && <div className="flex justify-between text-xs"><span className="text-emerald-400">Discount</span><span className="text-emerald-400">- {formatCurrency(billing.discount)}</span></div>}
               </div>
               <div className="border-t border-gold-500/20 pt-2 flex justify-between">
                 <span className="text-gold-400 font-semibold">Total</span>
@@ -351,11 +374,11 @@ export default function CreateInvoice() {
                 ["Metal Value", formatCurrency(savedInvoice.subtotal)],
                 ["Making Charges", formatCurrency(savedInvoice.makingCharges)],
                 ...(savedInvoice.stoneCharges > 0 ? [["Stone Charges", formatCurrency(savedInvoice.stoneCharges)]] : []),
-                ["GST (3%)", formatCurrency(savedInvoice.gstAmount)],
+                ...(savedInvoice.discount > 0 ? [["Discount", "- " + formatCurrency(savedInvoice.discount)]] : []),
               ].map(([label, value]) => (
                 <div key={label} className="flex justify-between text-sm animate-fade-in-up" style={{ opacity: 0 }}>
                   <span className="text-dark-400">{label}</span>
-                  <span className="text-white font-medium">{value}</span>
+                  <span className={`font-medium ${label === 'Discount' ? 'text-emerald-400' : 'text-white'}`}>{value}</span>
                 </div>
               ))}
               <div className="border-t border-gold-500/20 pt-3 flex justify-between animate-fade-in-up" style={{ opacity: 0 }}>
@@ -382,19 +405,57 @@ export default function CreateInvoice() {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 space-y-5 stagger-children">
 
-          {/* FIX #4: Daily Rate Input */}
+          {/* Live Market Rates + Rate Input */}
           <div className="glass rounded-2xl p-5 animate-fade-in-up card-hover" style={{ opacity: 0 }}>
+            {/* Live Rates Ticker */}
             <h2 className="text-sm font-semibold text-white mb-3 flex items-center gap-2 uppercase tracking-wider">
               <div className="w-7 h-7 rounded-lg bg-gold-500/15 flex items-center justify-center">
                 <IndianRupee size={14} className="text-gold-400" />
               </div>
-              Today's Rate (per gram)
+              Live Market Rates
               {liveRatesSource && (
                 <span className={`ml-2 text-[9px] px-2 py-0.5 rounded-full font-medium ${liveRatesSource === "default" ? "bg-dark-700 text-dark-400" : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/15"}`}>
-                  {liveRatesSource === "default" ? "Default" : "🟢 Live"}
+                  {liveRatesSource === "default" ? "Default Rates" : "🟢 Live"}
+                </span>
+              )}
+              {liveRatesData?.timestamp && (
+                <span className="ml-auto text-[9px] text-dark-500 font-normal normal-case">
+                  Updated: {new Date(liveRatesData.timestamp).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                 </span>
               )}
             </h2>
+
+            {/* Rate Cards Grid */}
+            {liveRatesData && (
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-4">
+                {[
+                  { label: "Gold 24K", value: liveRatesData.gold24K, color: "from-yellow-500/15 to-yellow-600/5 border-yellow-500/15", textColor: "text-yellow-400" },
+                  { label: "Gold 22K", value: liveRatesData.gold22K, color: "from-amber-500/15 to-amber-600/5 border-amber-500/15", textColor: "text-amber-400" },
+                  { label: "Gold 18K", value: liveRatesData.gold18K, color: "from-orange-500/12 to-orange-600/5 border-orange-500/12", textColor: "text-orange-400" },
+                  { label: "Silver", value: liveRatesData.silver, color: "from-slate-400/12 to-slate-500/5 border-slate-400/12", textColor: "text-slate-300" },
+                  { label: "Platinum", value: liveRatesData.platinum, color: "from-sky-400/12 to-sky-500/5 border-sky-400/12", textColor: "text-sky-300" },
+                ].map(({ label, value, color, textColor }) => (
+                  <div key={label} className={`bg-gradient-to-br ${color} border rounded-xl p-2.5 text-center`}>
+                    <p className="text-[9px] text-dark-400 uppercase tracking-wider mb-1">{label}</p>
+                    <p className={`text-sm font-bold ${textColor}`}>₹{value ? value.toLocaleString("en-IN") : "—"}</p>
+                    <p className="text-[8px] text-dark-600 mt-0.5">per gram</p>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Charges info */}
+            {liveRatesData?.premiums && (
+              <div className="bg-white/[0.02] rounded-lg px-3 py-2 mb-4">
+                <p className="text-[9px] text-dark-500 mb-1">
+                  <span className="font-semibold text-dark-400">Rates include:</span>{" "}
+                  MCX Premium (₹{liveRatesData.premiums.gold.mcxToSpot}/g) + RTGS Charges (₹{liveRatesData.premiums.gold.rtgsCharges}/g) + Refinery (₹{liveRatesData.premiums.gold.refineryMargin}/g) = <span className="text-gold-400 font-semibold">₹{liveRatesData.premiums.gold.total}/g total premium</span>
+                </p>
+              </div>
+            )}
+
+            {/* Editable Rate Inputs */}
+            <h3 className="text-xs font-semibold text-dark-300 mb-2 uppercase tracking-wider">Set Today's Billing Rate</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-xs text-dark-400 mb-1.5 block font-medium">Gold Rate (₹/g)</label>
@@ -408,7 +469,9 @@ export default function CreateInvoice() {
               </div>
             </div>
             <p className="text-[10px] text-dark-600 mt-2">
-              {liveRatesSource === "goldapi.io" ? "Rates auto-fetched from live market. You can still override per item." : "Set today's rate — auto-fills for new items. Can override per item."}
+              {liveRatesSource && liveRatesSource !== "default"
+                ? "Live rates auto-fetched. Billing rate auto-fills — you can override per item."
+                : "Set today's rate — auto-fills for new items. Can override per item. Rates auto-refresh every 5 min."}
             </p>
           </div>
 
@@ -538,15 +601,15 @@ export default function CreateInvoice() {
             </div>
           </div>
 
-          {/* Making Charges */}
+          {/* Making Charges & Discount */}
           <div className="glass rounded-2xl p-6 animate-fade-in-up card-hover" style={{ opacity: 0 }}>
             <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2 uppercase tracking-wider">
               <div className="w-7 h-7 rounded-lg bg-gold-500/15 flex items-center justify-center"><Calculator size={14} className="text-gold-400" /></div>
-              Making Charges
+              Making Charges & Discount
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
               <div>
-                <label className="text-xs text-dark-400 mb-1.5 block font-medium">Charge Type</label>
+                <label className="text-xs text-dark-400 mb-1.5 block font-medium">Making Charge Type</label>
                 <select value={makingChargesType} onChange={(e) => setMakingChargesType(e.target.value)}
                   className="input-gold w-full px-4 py-3 rounded-xl text-sm">
                   <option value="fixed">Fixed Amount (₹)</option>
@@ -555,12 +618,34 @@ export default function CreateInvoice() {
               </div>
               <div>
                 <label className="text-xs text-dark-400 mb-1.5 block font-medium">
-                  {makingChargesType === "fixed" ? "Amount (₹)" : "Percentage (%)"}
+                  {makingChargesType === "fixed" ? "Making Amount (₹)" : "Making Percentage (%)"}
                 </label>
                 <input type="number" value={makingChargesValue}
                   onChange={(e) => setMakingChargesValue(e.target.value)}
                   placeholder={makingChargesType === "fixed" ? "500" : "5"}
                   className="input-gold w-full px-4 py-3 rounded-xl text-sm" />
+              </div>
+            </div>
+            <div className="border-t border-white/[0.05] pt-4">
+              <h3 className="text-xs font-semibold text-dark-300 mb-3 uppercase tracking-wider">Discount (if applicable)</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-dark-400 mb-1.5 block font-medium">Discount Type</label>
+                  <select value={discountType} onChange={(e) => setDiscountType(e.target.value)}
+                    className="input-gold w-full px-4 py-3 rounded-xl text-sm">
+                    <option value="fixed">Fixed Amount (₹)</option>
+                    <option value="percentage">Percentage (%)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-dark-400 mb-1.5 block font-medium">
+                    {discountType === "fixed" ? "Discount Amount (₹)" : "Discount Percentage (%)"}
+                  </label>
+                  <input type="number" value={discountValue}
+                    onChange={(e) => setDiscountValue(e.target.value)}
+                    placeholder={discountType === "fixed" ? "0" : "0"}
+                    className="input-gold w-full px-4 py-3 rounded-xl text-sm" />
+                </div>
               </div>
             </div>
           </div>
@@ -575,7 +660,7 @@ export default function CreateInvoice() {
 
             <div className="bg-gradient-to-br from-dark-800 to-dark-900 rounded-xl p-4 mb-4 text-center border border-gold-500/8">
               <h3 className="font-display text-lg font-bold text-gradient-gold" style={{ lineHeight: '1.35' }}>Daksh Jewellers</h3>
-              <p className="text-[10px] text-dark-500" style={{ lineHeight: '1.5', marginTop: '4px' }}>Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019</p>
+              <p className="text-[10px] text-dark-500" style={{ lineHeight: '1.5', marginTop: '4px' }}>Ramavtar Market, Near Hill View Garden, Thada (Alwar) Rajasthan</p>
             </div>
 
             {billing ? (
@@ -603,16 +688,10 @@ export default function CreateInvoice() {
                 </div>
 
                 <div className="border-t border-white/[0.05] pt-3 space-y-2">
-                  {[
-                    ["Metal Value", formatCurrency(billing.subtotal)],
-                    ["Making Charges", formatCurrency(billing.makingCharges)],
-                    ["Stone Charges", formatCurrency(billing.stoneCharges || 0)],
-                    ["GST (3%)", formatCurrency(billing.gstAmount)],
-                  ].map(([l, v]) => (
-                    <div key={l} className="flex justify-between text-xs">
-                      <span className="text-dark-500">{l}</span><span className="text-dark-200">{v}</span>
-                    </div>
-                  ))}
+                  <div className="flex justify-between text-xs"><span className="text-dark-500">Metal Value</span><span className="text-dark-200">{formatCurrency(billing.subtotal)}</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-dark-500">Making Charges</span><span className="text-dark-200">{formatCurrency(billing.makingCharges)}</span></div>
+                  {billing.stoneCharges > 0 && <div className="flex justify-between text-xs"><span className="text-dark-500">Stone Charges</span><span className="text-dark-200">{formatCurrency(billing.stoneCharges)}</span></div>}
+                  {billing.discount > 0 && <div className="flex justify-between text-xs"><span className="text-emerald-400">Discount</span><span className="text-emerald-400">- {formatCurrency(billing.discount)}</span></div>}
                   <div className="border-t border-gold-500/15 pt-3 flex justify-between items-baseline">
                     <span className="text-sm font-semibold text-gold-400">Total</span>
                     <span className="text-xl font-bold text-gold-400 animate-count-up">{formatCurrency(billing.totalAmount)}</span>

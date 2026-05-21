@@ -13,6 +13,8 @@ import {
   ChevronLeft,
   Zap,
   LogOut,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { useAuth } from "../context/AuthContext";
@@ -28,6 +30,10 @@ const navItems = [
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isDark, setIsDark] = useState(() => {
+    const saved = localStorage.getItem("daksh-theme");
+    return saved ? saved === "dark" : true;
+  });
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
@@ -42,6 +48,12 @@ export default function Sidebar() {
     document.body.classList.toggle("sidebar-collapsed", isCollapsed);
     return () => document.body.classList.remove("sidebar-collapsed");
   }, [isCollapsed]);
+
+  // Theme toggle
+  useEffect(() => {
+    document.body.classList.toggle("light-mode", !isDark);
+    localStorage.setItem("daksh-theme", isDark ? "dark" : "light");
+  }, [isDark]);
 
   // Prevent body scroll when sidebar is open on mobile
   useEffect(() => {
@@ -172,11 +184,19 @@ export default function Sidebar() {
           ))}
         </nav>
 
-        {/* Collapse toggle (desktop only) */}
-        <div className="hidden lg:block px-3 pb-2">
+        {/* Theme toggle + Collapse toggle (desktop only) */}
+        <div className="hidden lg:flex items-center gap-1 px-3 pb-2">
+          <button
+            onClick={() => setIsDark(!isDark)}
+            className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-dark-500 hover:text-gold-400 hover:bg-white/[0.03] transition-all text-xs flex-1"
+            title={isDark ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {isDark ? <Sun size={14} /> : <Moon size={14} />}
+            {!isCollapsed && <span className="text-[10px]">{isDark ? "Light" : "Dark"}</span>}
+          </button>
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="w-full flex items-center justify-center gap-2 py-2 rounded-lg text-dark-500 hover:text-gold-400 hover:bg-white/[0.03] transition-all text-xs"
+            className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-dark-500 hover:text-gold-400 hover:bg-white/[0.03] transition-all text-xs flex-1"
           >
             {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
             {!isCollapsed && <span className="text-[10px]">Collapse</span>}
@@ -202,6 +222,14 @@ export default function Sidebar() {
               >
                 <LogOut size={13} />
                 <span>Logout</span>
+              </button>
+              {/* Mobile theme toggle */}
+              <button
+                onClick={() => setIsDark(!isDark)}
+                className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-dark-500 hover:text-gold-400 hover:bg-white/[0.03] transition-all text-[11px] lg:hidden"
+              >
+                {isDark ? <Sun size={13} /> : <Moon size={13} />}
+                <span>{isDark ? "Light Mode" : "Dark Mode"}</span>
               </button>
             </>
           ) : (

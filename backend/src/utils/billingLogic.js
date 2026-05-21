@@ -1,6 +1,9 @@
 /**
  * Jewellery Billing Logic - Domain Expert Module
  *
+ * COMPOSITE SCHEME: Shop pays 1% GST internally.
+ * Customer invoices do NOT include GST (Bill of Supply).
+ *
  * Purity Standards:
  *   24K = 99.9% pure gold
  *   22K = 91.6% pure gold (Hallmark)
@@ -12,9 +15,9 @@
  *   1. Base Price = Weight × Rate per gram
  *   2. Adjusted Price = Base Price × Purity Factor
  *   3. Making Charges (fixed ₹ or % of adjusted price)
- *   4. Taxable Amount = Adjusted Price + Making Charges
- *   5. GST = 3% of Taxable Amount
- *   6. Total = Taxable Amount + GST
+ *   4. Gross = Adjusted Price + Making + Stone
+ *   5. Discount (fixed ₹ or % of Gross)
+ *   6. Total = Gross - Discount (No GST under composite scheme)
  */
 
 const PURITY_FACTORS = {
@@ -33,13 +36,11 @@ const PURITY_LABELS = {
   SterlingSilver: "Sterling Silver",
 };
 
-const GST_RATE = 3; // 3% GST on jewellery
+// Composite scheme: 0% GST to customer
+const GST_RATE = 0;
 
 /**
  * HSN Code Mapping for Jewellery
- * Gold Jewellery → 7113
- * Silver Jewellery → 7114
- * Diamond Jewellery → 7102
  */
 const HSN_CODES = {
   Gold: "7113",
@@ -47,7 +48,6 @@ const HSN_CODES = {
   Diamond: "7102",
 };
 
-// Map purity key to metal type for HSN lookup
 const PURITY_TO_METAL = {
   "24K": "Gold",
   "22K": "Gold",
@@ -56,18 +56,12 @@ const PURITY_TO_METAL = {
   SterlingSilver: "Silver",
 };
 
-/**
- * Get HSN code for a purity type
- */
 function getHSNCode(purity, category) {
   if (category === "Diamond") return HSN_CODES.Diamond;
   const metal = PURITY_TO_METAL[purity];
   return HSN_CODES[metal] || "7113";
 }
 
-/**
- * Calculate billing for a single item
- */
 function calculateItemPrice(item) {
   const { weight, ratePerGram, purity, stoneCharges = 0 } = item;
 
@@ -91,13 +85,12 @@ function calculateItemPrice(item) {
   };
 }
 
-/**
- * Calculate full invoice totals
- */
 function calculateInvoice(
   items,
   makingChargesValue = 0,
-  makingChargesType = "fixed"
+  makingChargesType = "fixed",
+  discountValue = 0,
+  discountType = "fixed"
 ) {
   const calculatedItems = items.map((item) => {
     const { basePrice, adjustedPrice, purityFactor, stoneCharges, hsnCode } =
@@ -117,7 +110,6 @@ function calculateInvoice(
     0
   );
 
-  // Total stone charges across all items
   const totalStoneCharges = calculatedItems.reduce(
     (sum, item) => sum + (item.stoneCharges || 0),
     0
@@ -130,10 +122,19 @@ function calculateInvoice(
     makingCharges = makingChargesValue;
   }
 
-  // Formula: Final = (weight × rate × purity) + making + stone + GST
-  const taxableAmount = subtotal + makingCharges + totalStoneCharges;
-  const gstAmount = taxableAmount * (GST_RATE / 100);
-  const totalAmount = taxableAmount + gstAmount;
+  // Calculate discount
+  let discount = 0;
+  const grossAmount = subtotal + makingCharges + totalStoneCharges;
+  if (discountType === "percentage") {
+    discount = grossAmount * (discountValue / 100);
+  } else {
+    discount = discountValue;
+  }
+
+  // Composite scheme: No GST charged to customer
+  const taxableAmount = grossAmount - discount;
+  const gstAmount = 0;
+  const totalAmount = taxableAmount;
 
   return {
     items: calculatedItems,
@@ -142,6 +143,9 @@ function calculateInvoice(
     stoneCharges: Math.round(totalStoneCharges * 100) / 100,
     makingChargesType,
     makingChargesValue,
+    discount: Math.round(discount * 100) / 100,
+    discountType,
+    discountValue,
     taxableAmount: Math.round(taxableAmount * 100) / 100,
     gstRate: GST_RATE,
     gstAmount: Math.round(gstAmount * 100) / 100,

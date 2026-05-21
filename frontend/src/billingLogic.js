@@ -1,6 +1,9 @@
 /**
  * Jewellery Billing Logic (Frontend Mirror)
  * Must match backend calculations exactly
+ *
+ * COMPOSITE SCHEME: GST is NOT charged to customers.
+ * The shop pays 1% internally. Invoices are "Bill of Supply".
  */
 
 export const PURITY_FACTORS = {
@@ -28,7 +31,8 @@ export const PURITY_METAL = {
   SterlingSilver: "silver",
 };
 
-export const GST_RATE = 3;
+// Composite scheme: 0% GST to customer (shop pays 1% internally)
+export const GST_RATE = 0;
 
 /** HSN Code Mapping */
 export const HSN_CODES = {
@@ -68,7 +72,9 @@ export function calculateItemPrice(item) {
 export function calculateInvoice(
   items,
   makingChargesValue = 0,
-  makingChargesType = "fixed"
+  makingChargesType = "fixed",
+  discountValue = 0,
+  discountType = "fixed"
 ) {
   const calculatedItems = items.map((item) => {
     const { basePrice, adjustedPrice, stoneCharges, hsnCode } = calculateItemPrice(item);
@@ -92,9 +98,19 @@ export function calculateInvoice(
     makingCharges = makingChargesValue;
   }
 
-  const taxableAmount = subtotal + makingCharges + totalStoneCharges;
-  const gstAmount = taxableAmount * (GST_RATE / 100);
-  const totalAmount = taxableAmount + gstAmount;
+  // Calculate discount
+  let discount = 0;
+  const grossAmount = subtotal + makingCharges + totalStoneCharges;
+  if (discountType === "percentage") {
+    discount = grossAmount * (discountValue / 100);
+  } else {
+    discount = discountValue;
+  }
+
+  // Composite scheme: No GST charged to customer
+  const taxableAmount = grossAmount - discount;
+  const gstAmount = 0; // Composite scheme
+  const totalAmount = taxableAmount;
 
   return {
     items: calculatedItems,
@@ -103,6 +119,9 @@ export function calculateInvoice(
     stoneCharges: Math.round(totalStoneCharges * 100) / 100,
     makingChargesType,
     makingChargesValue,
+    discount: Math.round(discount * 100) / 100,
+    discountType,
+    discountValue,
     taxableAmount: Math.round(taxableAmount * 100) / 100,
     gstRate: GST_RATE,
     gstAmount: Math.round(gstAmount * 100) / 100,

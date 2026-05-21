@@ -53,11 +53,14 @@ export const createInvoice = (data) => api.post("/invoice", data);
 export const getInvoices = (params = {}) => api.get("/invoice", { params });
 export const getInvoiceById = (id) => api.get(`/invoice/${id}`);
 export const sendWhatsApp = (id) => api.post(`/invoice/${id}/whatsapp`);
+export const deleteInvoice = (id, password) => api.delete(`/invoice/${id}`, { data: { password } });
 
 // Dashboard
 export const getDashboardStats = () => api.get("/invoice/dashboard");
 export const getBusinessConfig = () => api.get("/invoice/business");
 export const getMonthlyTrend = (months = 6) => api.get(`/invoice/trend?months=${months}`);
+export const getDailyTrend = (days = 30) => api.get(`/invoice/daily-trend?days=${days}`);
+export const getAdvancedStats = () => api.get("/invoice/advanced-stats");
 export const getLiveRates = () => api.get("/invoice/rates");
 
 // Health Check

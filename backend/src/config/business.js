@@ -5,7 +5,7 @@ const businessConfig = {
   name: "DAKSH JEWELLERS",
   category: "Jewelry Store",
   dealsIn: "All Types of Gold, Silver & Diamond Jewellery",
-  address: "Shop No. 1, Rainwar Market, Near Hill View Garden, Vill. Thada (Alwar) Rajasthan",
+  address: "Shop No. 1, Ramavtar Market, Near Hill View Garden, Vill. Thada (Alwar) Rajasthan",
   location: "Thada (Alwar), Rajasthan",
   openingHours: "10:00 AM onwards",
   proprietor: "Praveen Kumar",

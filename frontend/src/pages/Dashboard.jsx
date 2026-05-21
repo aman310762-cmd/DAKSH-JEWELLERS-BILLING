@@ -43,15 +43,15 @@ function StatCard({ label, value, sub, icon: Icon, gradient, delay = 0, trend })
   return (
     <Card
       hover
-      className="p-4 relative overflow-hidden animate-fade-in-up group"
-      style={{ animationDelay: `${delay}ms`, opacity: 0 }}
+      className="relative overflow-hidden animate-fade-in-up group"
+      style={{ animationDelay: `${delay}ms`, opacity: 0, padding: '18px 16px' }}
     >
-      <div className="flex items-start justify-between gap-3 relative z-10">
-        <div className="min-w-0 flex-1 overflow-hidden">
-          <p className="text-[10px] text-dark-500 uppercase tracking-wider font-medium" style={{ lineHeight: '1.4', marginBottom: '4px' }}>
+      <div className="flex items-center justify-between gap-2 relative z-10">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] text-dark-500 uppercase tracking-wider font-medium truncate" style={{ lineHeight: '1.5', marginBottom: '6px' }}>
             {label}
           </p>
-          <p className="text-sm sm:text-base lg:text-lg font-bold text-white truncate" style={{ lineHeight: '1.35', marginBottom: '4px' }}>
+          <p className="text-sm sm:text-base lg:text-lg font-bold text-white truncate" style={{ lineHeight: '1.3', marginBottom: '4px' }}>
             {typeof value === "string" ? value : <AnimatedCounter value={value} />}
           </p>
           <p className="text-[10px] text-dark-600 truncate" style={{ lineHeight: '1.4' }}>{sub}</p>
@@ -82,12 +82,12 @@ export default function Dashboard() {
         todaySales: 0, monthlySales: 0, monthlyInvoices: 0,
         totalRevenue: 0, todayRevenue: 0, topCustomer: null,
         recentInvoices: [],
-        business: { name: "Daksh Jewellers", address: "Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019", openingHours: "10:00 AM onwards" },
+        business: { name: "Daksh Jewellers", address: "Ramavtar Market, Near Hill View Garden, Thada (Alwar) Rajasthan", openingHours: "10:00 AM onwards" },
       });
     } finally { setLoading(false); }
   };
 
-  const biz = stats?.business || { name: "Daksh Jewellers", address: "Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019", openingHours: "10:00 AM onwards" };
+  const biz = stats?.business || { name: "Daksh Jewellers", address: "Ramavtar Market, Near Hill View Garden, Thada (Alwar) Rajasthan", openingHours: "10:00 AM onwards" };
 
   const handleQuickDownload = (inv) => {
     const s = downloadInvoicePDF(inv);

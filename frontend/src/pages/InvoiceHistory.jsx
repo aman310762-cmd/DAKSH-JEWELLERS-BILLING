@@ -1,10 +1,10 @@
 import { useState, useEffect } from "react";
 import {
-  FileText, Search, Download, Send, Eye, X, Receipt,
+  FileText, Search, Download, Send, Eye, X, Receipt, Trash2, Lock, AlertTriangle,
 } from "lucide-react";
-import { getInvoices, sendWhatsApp } from "../api";
+import { getInvoices, deleteInvoice } from "../api";
 import { formatCurrency, PURITY_LABELS } from "../billingLogic";
-import { downloadInvoicePDF } from "../components/PDFGenerator";
+import { downloadInvoicePDF, shareInvoiceViaWhatsApp } from "../components/PDFGenerator";
 import { Card, CardContent, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
@@ -17,6 +17,12 @@ export default function InvoiceHistory() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [selectedInvoice, setSelectedInvoice] = useState(null);
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => { fetchInvoices(); }, []);
 
@@ -40,10 +46,41 @@ export default function InvoiceHistory() {
 
   const handleWhatsApp = async (invoice) => {
     try {
-      const { data } = await sendWhatsApp(invoice._id);
-      if (data.whatsappUrl) window.open(data.whatsappUrl, "_blank");
-      toast.success("WhatsApp opened!");
+      const result = await shareInvoiceViaWhatsApp(invoice);
+      if (result.method === "share") {
+        toast.success("PDF shared via WhatsApp!");
+      } else if (result.method === "download-and-chat") {
+        toast.success("PDF downloaded! Attach it in the WhatsApp chat.", { duration: 5000 });
+      } else if (result.method !== "cancelled") {
+        toast.success("WhatsApp opened!");
+      }
     } catch { toast.error("Failed"); }
+  };
+
+  // Delete with password verification
+  const handleDeleteConfirm = async () => {
+    if (!deletePassword.trim()) {
+      toast.error("Please enter your admin password");
+      return;
+    }
+    setDeleteLoading(true);
+    try {
+      await deleteInvoice(deleteTarget._id, deletePassword);
+      toast.success(`Invoice ${deleteTarget.invoiceNumber} deleted successfully`);
+      setDeleteTarget(null);
+      setDeletePassword("");
+      fetchInvoices(search);
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to delete invoice");
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const openDeleteModal = (invoice) => {
+    setDeleteTarget(invoice);
+    setDeletePassword("");
+    setShowPassword(false);
   };
 
   return (
@@ -91,6 +128,7 @@ export default function InvoiceHistory() {
                         <button onClick={() => setSelectedInvoice(inv)} className="p-2 rounded-lg hover:bg-white/[0.05] text-dark-500 hover:text-white transition-all" title="View"><Eye size={15} /></button>
                         <button onClick={() => handleDownload(inv)} className="p-2 rounded-lg hover:bg-gold-500/10 text-dark-500 hover:text-gold-400 transition-all" title="PDF"><Download size={15} /></button>
                         <button onClick={() => handleWhatsApp(inv)} className="p-2 rounded-lg hover:bg-emerald-500/10 text-dark-500 hover:text-emerald-400 transition-all" title="WhatsApp"><Send size={15} /></button>
+                        <button onClick={() => openDeleteModal(inv)} className="p-2 rounded-lg hover:bg-red-500/10 text-dark-500 hover:text-red-400 transition-all" title="Delete"><Trash2 size={15} /></button>
                       </div>
                     </td>
                   </tr>
@@ -116,6 +154,7 @@ export default function InvoiceHistory() {
                     <button onClick={() => setSelectedInvoice(inv)} className="p-1.5 rounded text-dark-500 hover:text-white"><Eye size={14} /></button>
                     <button onClick={() => handleDownload(inv)} className="p-1.5 rounded text-dark-500 hover:text-gold-400"><Download size={14} /></button>
                     <button onClick={() => handleWhatsApp(inv)} className="p-1.5 rounded text-dark-500 hover:text-emerald-400"><Send size={14} /></button>
+                    <button onClick={() => openDeleteModal(inv)} className="p-1.5 rounded text-dark-500 hover:text-red-400"><Trash2 size={14} /></button>
                   </div>
                 </div>
               </div>
@@ -129,13 +168,85 @@ export default function InvoiceHistory() {
         </div>
       )}
 
+      {/* ====== DELETE CONFIRMATION MODAL ====== */}
+      <Dialog open={!!deleteTarget} onClose={() => { setDeleteTarget(null); setDeletePassword(""); }}>
+        {deleteTarget && (
+          <>
+            <DialogHeader>
+              <div className="w-14 h-14 rounded-full bg-red-500/15 flex items-center justify-center mx-auto mb-3 animate-scale-in">
+                <AlertTriangle size={24} className="text-red-400" />
+              </div>
+              <DialogTitle>Delete Invoice</DialogTitle>
+              <p className="text-xs text-dark-400 mt-1">This action cannot be undone</p>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="bg-red-500/[0.05] rounded-xl p-4 border border-red-500/10">
+                <div className="flex justify-between text-sm">
+                  <span className="text-dark-400">Invoice</span>
+                  <Badge variant="gold">{deleteTarget.invoiceNumber}</Badge>
+                </div>
+                <div className="flex justify-between text-sm mt-2">
+                  <span className="text-dark-400">Customer</span>
+                  <span className="text-white font-medium">{deleteTarget.customerName}</span>
+                </div>
+                <div className="flex justify-between text-sm mt-2">
+                  <span className="text-dark-400">Amount</span>
+                  <span className="text-gold-400 font-bold">{formatCurrency(deleteTarget.totalAmount)}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-dark-400 mb-1.5 block font-medium">
+                  <Lock size={10} className="inline mr-1" />
+                  ADMIN PASSWORD <span className="text-red-400">*</span>
+                </label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-dark-500" />
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="Enter admin password to confirm"
+                    className="input-gold w-full pl-10 pr-4 py-3 rounded-xl text-sm"
+                    autoFocus
+                    onKeyDown={(e) => e.key === "Enter" && handleDeleteConfirm()}
+                  />
+                </div>
+                <p className="text-[10px] text-dark-600 mt-1.5">Enter your login password to verify you are admin</p>
+              </div>
+
+              <DialogFooter>
+                <button
+                  onClick={() => { setDeleteTarget(null); setDeletePassword(""); }}
+                  className="flex-1 py-3 rounded-xl text-sm text-dark-300 bg-dark-700/50 hover:bg-dark-700 transition-all font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleteLoading || !deletePassword.trim()}
+                  className="flex-1 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 bg-red-500/15 text-red-400 hover:bg-red-500/25 border border-red-500/20 hover:border-red-500/40 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {deleteLoading ? (
+                    <div className="w-5 h-5 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+                  ) : (
+                    <><Trash2 size={14} /> Delete Invoice</>
+                  )}
+                </button>
+              </DialogFooter>
+            </div>
+          </>
+        )}
+      </Dialog>
+
       {/* Detail Modal */}
       <Dialog open={!!selectedInvoice} onClose={() => setSelectedInvoice(null)} className="max-w-2xl max-h-[90vh] overflow-y-auto">
         {selectedInvoice && (
           <>
             <div className="text-center mb-6 border-b border-gold-500/10 pb-6">
               <h2 className="font-display text-2xl font-bold text-gradient-gold" style={{ lineHeight: '1.35' }}>Daksh Jewellers</h2>
-              <p className="text-[10px] text-dark-500" style={{ lineHeight: '1.5', marginTop: '4px' }}>Near Trehan Society, Bhiwadi, Thara, Rajasthan 301019</p>
+              <p className="text-[10px] text-dark-500" style={{ lineHeight: '1.5', marginTop: '4px' }}>Shop No. 1, Ramavtar Market, Near Hill View Garden, Vill. Thada (Alwar) Rajasthan</p>
               <Badge variant="gold" className="mt-3">{selectedInvoice.invoiceNumber}</Badge>
             </div>
             <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
@@ -159,13 +270,10 @@ export default function InvoiceHistory() {
               </div>
             </div>
             <div className="border-t border-white/[0.05] pt-4 space-y-2">
-              {[
-                ["Metal Value", selectedInvoice.subtotal],
-                ["Making Charges", selectedInvoice.makingCharges],
-                [`GST (${selectedInvoice.gstRate || 3}%)`, selectedInvoice.gstAmount],
-              ].map(([l, v]) => (
-                <div key={l} className="flex justify-between text-sm"><span className="text-dark-500">{l}</span><span className="text-dark-200">{formatCurrency(v)}</span></div>
-              ))}
+              <div className="flex justify-between text-sm"><span className="text-dark-500">Metal Value</span><span className="text-dark-200">{formatCurrency(selectedInvoice.subtotal)}</span></div>
+              <div className="flex justify-between text-sm"><span className="text-dark-500">Making Charges</span><span className="text-dark-200">{formatCurrency(selectedInvoice.makingCharges)}</span></div>
+              {selectedInvoice.stoneCharges > 0 && <div className="flex justify-between text-sm"><span className="text-dark-500">Stone Charges</span><span className="text-dark-200">{formatCurrency(selectedInvoice.stoneCharges)}</span></div>}
+              {selectedInvoice.discount > 0 && <div className="flex justify-between text-sm"><span className="text-emerald-400">Discount</span><span className="text-emerald-400">- {formatCurrency(selectedInvoice.discount)}</span></div>}
               <div className="border-t border-gold-500/15 pt-3 flex justify-between">
                 <span className="text-base font-semibold text-gold-400">Total</span>
                 <span className="text-xl font-bold text-gold-400">{formatCurrency(selectedInvoice.totalAmount)}</span>

@@ -101,6 +101,13 @@ class InMemoryStore {
     return inv;
   }
 
+  deleteInvoice(id) {
+    const index = this.invoices.findIndex((inv) => inv._id === id);
+    if (index === -1) return false;
+    this.invoices.splice(index, 1);
+    return true;
+  }
+
   // ========== Dashboard Stats ==========
 
   getDashboardStats() {

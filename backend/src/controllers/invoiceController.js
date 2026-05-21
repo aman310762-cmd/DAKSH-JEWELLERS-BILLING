@@ -16,6 +16,8 @@ exports.createInvoice = async (req, res) => {
       items,
       makingChargesValue,
       makingChargesType,
+      discountValue,
+      discountType,
     } = req.body;
 
     // ===== VALIDATION =====
@@ -46,11 +48,13 @@ exports.createInvoice = async (req, res) => {
       }
     }
 
-    // Calculate billing
+    // Calculate billing (Composite Scheme - no GST to customer)
     const billing = calculateInvoice(
       items,
       makingChargesValue || 0,
-      makingChargesType || "fixed"
+      makingChargesType || "fixed",
+      discountValue || 0,
+      discountType || "fixed"
     );
 
     if (isInMemory()) {
@@ -82,6 +86,9 @@ exports.createInvoice = async (req, res) => {
         stoneCharges: billing.stoneCharges || 0,
         makingChargesType: billing.makingChargesType,
         makingChargesValue: billing.makingChargesValue,
+        discount: billing.discount || 0,
+        discountType: billing.discountType || "fixed",
+        discountValue: billing.discountValue || 0,
         taxableAmount: billing.taxableAmount,
         gstRate: billing.gstRate,
         gstAmount: billing.gstAmount,
@@ -135,6 +142,9 @@ exports.createInvoice = async (req, res) => {
       stoneCharges: billing.stoneCharges || 0,
       makingChargesType: billing.makingChargesType,
       makingChargesValue: billing.makingChargesValue,
+      discount: billing.discount || 0,
+      discountType: billing.discountType || "fixed",
+      discountValue: billing.discountValue || 0,
       taxableAmount: billing.taxableAmount,
       gstRate: billing.gstRate,
       gstAmount: billing.gstAmount,
@@ -255,6 +265,37 @@ exports.sendWhatsApp = async (req, res) => {
     res.json({ message: "WhatsApp link generated", whatsappUrl, method: "wa.me" });
   } catch (error) {
     console.error("WhatsApp error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Delete invoice with password verification
+exports.deleteInvoice = async (req, res) => {
+  try {
+    const { password } = req.body;
+
+    if (!password) {
+      return res.status(400).json({ error: "Password is required to delete an invoice" });
+    }
+
+    // Verify against fixed admin credentials
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || "Focused123";
+    if (password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ error: "Invalid password. Only admin can delete invoices." });
+    }
+
+    if (isInMemory()) {
+      const deleted = store.deleteInvoice(req.params.id);
+      if (!deleted) return res.status(404).json({ error: "Invoice not found" });
+      return res.json({ message: "Invoice deleted successfully" });
+    }
+
+    const invoice = await Invoice.findByIdAndDelete(req.params.id);
+    if (!invoice) return res.status(404).json({ error: "Invoice not found" });
+
+    res.json({ message: "Invoice deleted successfully", invoiceNumber: invoice.invoiceNumber });
+  } catch (error) {
+    console.error("Delete invoice error:", error);
     res.status(500).json({ error: error.message });
   }
 };
@@ -389,43 +430,266 @@ exports.getMonthlyTrend = async (req, res) => {
   }
 };
 
-// Live gold/silver rate proxy (Phase 5)
+// Live gold/silver/platinum rate with MCX + RTGS premiums
 exports.getLiveRates = async (req, res) => {
   try {
-    // Try fetching from a public API
-    const response = await fetch("https://www.goldapi.io/api/XAU/INR", {
-      headers: { "x-access-token": process.env.GOLD_API_KEY || "" },
+    const { getLiveRatesData } = require("../utils/liveRates");
+    const rates = await getLiveRatesData();
+    res.json(rates);
+  } catch (err) {
+    console.error("Live rates error:", err.message);
+    // Return safe defaults
+    res.json({
+      gold24K: 7900,
+      gold22K: 7250,
+      gold18K: 5950,
+      silver: 101,
+      platinum: 3400,
+      source: "default",
+      timestamp: new Date().toISOString(),
     });
+  }
+};
 
-    if (response.ok) {
-      const data = await response.json();
-      return res.json({
-        gold24K: Math.round(data.price_gram_24k || 0),
-        gold22K: Math.round(data.price_gram_22k || 0),
-        gold18K: Math.round(data.price_gram_18k || 0),
-        silver: Math.round(data.price_gram_24k ? data.price_gram_24k / 80 : 0), // approximate
-        timestamp: new Date().toISOString(),
-        source: "goldapi.io",
+// Daily trend data for analytics
+exports.getDailyTrend = async (req, res) => {
+  try {
+    const days = parseInt(req.query.days) || 30;
+
+    if (isInMemory()) {
+      const trend = [];
+      const now = new Date();
+      for (let i = days - 1; i >= 0; i--) {
+        const d = new Date(now);
+        d.setDate(d.getDate() - i);
+        d.setHours(0, 0, 0, 0);
+        const end = new Date(d);
+        end.setHours(23, 59, 59, 999);
+        const dayInvoices = store.getInvoices().filter((inv) => {
+          const dt = new Date(inv.createdAt);
+          return dt >= d && dt <= end;
+        });
+        trend.push({
+          date: d.toISOString().split("T")[0],
+          day: d.toLocaleDateString("en-IN", { weekday: "short" }),
+          dayOfMonth: d.getDate(),
+          month: d.toLocaleDateString("en-IN", { month: "short" }),
+          revenue: dayInvoices.reduce((s, inv) => s + (inv.totalAmount || 0), 0),
+          invoices: dayInvoices.length,
+          customers: new Set(dayInvoices.map((inv) => inv.customerPhone)).size,
+        });
+      }
+      return res.json(trend);
+    }
+
+    // MongoDB aggregation for daily trend
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    const pipeline = [
+      { $match: { createdAt: { $gte: startDate } } },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            month: { $month: "$createdAt" },
+            day: { $dayOfMonth: "$createdAt" },
+          },
+          revenue: { $sum: "$totalAmount" },
+          invoices: { $sum: 1 },
+          customers: { $addToSet: "$customerPhone" },
+        },
+      },
+      { $sort: { "_id.year": 1, "_id.month": 1, "_id.day": 1 } },
+    ];
+
+    const results = await Invoice.aggregate(pipeline);
+
+    // Fill in missing days with zero values
+    const trend = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const match = results.find(
+        (r) => r._id.year === d.getFullYear() && r._id.month === d.getMonth() + 1 && r._id.day === d.getDate()
+      );
+      trend.push({
+        date: d.toISOString().split("T")[0],
+        day: d.toLocaleDateString("en-IN", { weekday: "short" }),
+        dayOfMonth: d.getDate(),
+        month: d.toLocaleDateString("en-IN", { month: "short" }),
+        revenue: match ? Math.round(match.revenue * 100) / 100 : 0,
+        invoices: match ? match.invoices : 0,
+        customers: match ? match.customers.length : 0,
       });
     }
 
-    // Fallback: return reasonable defaults
+    res.json(trend);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Advanced analytics stats
+exports.getAdvancedStats = async (req, res) => {
+  try {
+    if (isInMemory()) {
+      const invoices = store.getInvoices();
+      const now = new Date();
+
+      // This week vs last week
+      const thisWeekStart = new Date(now);
+      thisWeekStart.setDate(now.getDate() - now.getDay());
+      thisWeekStart.setHours(0, 0, 0, 0);
+      const lastWeekStart = new Date(thisWeekStart);
+      lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+      const thisWeekInvoices = invoices.filter((inv) => new Date(inv.createdAt) >= thisWeekStart);
+      const lastWeekInvoices = invoices.filter((inv) => {
+        const d = new Date(inv.createdAt);
+        return d >= lastWeekStart && d < thisWeekStart;
+      });
+
+      const thisWeekRevenue = thisWeekInvoices.reduce((s, inv) => s + (inv.totalAmount || 0), 0);
+      const lastWeekRevenue = lastWeekInvoices.reduce((s, inv) => s + (inv.totalAmount || 0), 0);
+
+      // Category breakdown
+      const categoryBreakdown = {};
+      invoices.forEach((inv) => {
+        (inv.items || []).forEach((item) => {
+          const cat = item.category || "Gold";
+          if (!categoryBreakdown[cat]) categoryBreakdown[cat] = { revenue: 0, count: 0 };
+          categoryBreakdown[cat].revenue += item.adjustedPrice || 0;
+          categoryBreakdown[cat].count++;
+        });
+      });
+
+      // Top 5 customers
+      const customerMap = {};
+      invoices.forEach((inv) => {
+        const key = inv.customerPhone;
+        if (!customerMap[key]) customerMap[key] = { name: inv.customerName, phone: inv.customerPhone, total: 0, count: 0 };
+        customerMap[key].total += inv.totalAmount || 0;
+        customerMap[key].count++;
+      });
+      const top5Customers = Object.values(customerMap).sort((a, b) => b.total - a.total).slice(0, 5);
+
+      // Best day
+      const dayMap = {};
+      invoices.forEach((inv) => {
+        const dateKey = new Date(inv.createdAt).toISOString().split("T")[0];
+        if (!dayMap[dateKey]) dayMap[dateKey] = { date: dateKey, revenue: 0, invoices: 0 };
+        dayMap[dateKey].revenue += inv.totalAmount || 0;
+        dayMap[dateKey].invoices++;
+      });
+      const bestDay = Object.values(dayMap).sort((a, b) => b.revenue - a.revenue)[0] || null;
+
+      // Average daily revenue (last 30 days)
+      const thirtyDaysAgo = new Date(now);
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      const last30Invoices = invoices.filter((inv) => new Date(inv.createdAt) >= thirtyDaysAgo);
+      const last30Revenue = last30Invoices.reduce((s, inv) => s + (inv.totalAmount || 0), 0);
+      const avgDailyRevenue = last30Revenue / 30;
+
+      return res.json({
+        weeklyComparison: {
+          thisWeek: { revenue: thisWeekRevenue, invoices: thisWeekInvoices.length },
+          lastWeek: { revenue: lastWeekRevenue, invoices: lastWeekInvoices.length },
+          changePercent: lastWeekRevenue > 0 ? Math.round(((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100) : 0,
+        },
+        categoryBreakdown: Object.entries(categoryBreakdown).map(([name, data]) => ({ name, ...data })),
+        top5Customers,
+        bestDay,
+        avgDailyRevenue: Math.round(avgDailyRevenue * 100) / 100,
+      });
+    }
+
+    // MongoDB version
+    const now = new Date();
+
+    // This week vs last week
+    const thisWeekStart = new Date(now);
+    thisWeekStart.setDate(now.getDate() - now.getDay());
+    thisWeekStart.setHours(0, 0, 0, 0);
+    const lastWeekStart = new Date(thisWeekStart);
+    lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+
+    const [thisWeekAgg, lastWeekAgg] = await Promise.all([
+      Invoice.aggregate([
+        { $match: { createdAt: { $gte: thisWeekStart } } },
+        { $group: { _id: null, revenue: { $sum: "$totalAmount" }, invoices: { $sum: 1 } } },
+      ]),
+      Invoice.aggregate([
+        { $match: { createdAt: { $gte: lastWeekStart, $lt: thisWeekStart } } },
+        { $group: { _id: null, revenue: { $sum: "$totalAmount" }, invoices: { $sum: 1 } } },
+      ]),
+    ]);
+
+    const thisWeekRevenue = thisWeekAgg[0]?.revenue || 0;
+    const lastWeekRevenue = lastWeekAgg[0]?.revenue || 0;
+
+    // Category breakdown
+    const categoryAgg = await Invoice.aggregate([
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: { $ifNull: ["$items.category", "Gold"] },
+          revenue: { $sum: "$items.adjustedPrice" },
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    // Top 5 customers
+    const topCustomersAgg = await Invoice.aggregate([
+      {
+        $group: {
+          _id: "$customerPhone",
+          name: { $first: "$customerName" },
+          phone: { $first: "$customerPhone" },
+          total: { $sum: "$totalAmount" },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { total: -1 } },
+      { $limit: 5 },
+    ]);
+
+    // Best day
+    const bestDayAgg = await Invoice.aggregate([
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          revenue: { $sum: "$totalAmount" },
+          invoices: { $sum: 1 },
+        },
+      },
+      { $sort: { revenue: -1 } },
+      { $limit: 1 },
+    ]);
+
+    // Average daily revenue (last 30 days)
+    const thirtyDaysAgo = new Date(now);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const last30Agg = await Invoice.aggregate([
+      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: null, revenue: { $sum: "$totalAmount" } } },
+    ]);
+    const avgDailyRevenue = (last30Agg[0]?.revenue || 0) / 30;
+
     res.json({
-      gold24K: 7200,
-      gold22K: 6600,
-      gold18K: 5400,
-      silver: 95,
-      timestamp: new Date().toISOString(),
-      source: "default",
+      weeklyComparison: {
+        thisWeek: { revenue: thisWeekRevenue, invoices: thisWeekAgg[0]?.invoices || 0 },
+        lastWeek: { revenue: lastWeekRevenue, invoices: lastWeekAgg[0]?.invoices || 0 },
+        changePercent: lastWeekRevenue > 0 ? Math.round(((thisWeekRevenue - lastWeekRevenue) / lastWeekRevenue) * 100) : 0,
+      },
+      categoryBreakdown: categoryAgg.map((c) => ({ name: c._id, revenue: Math.round(c.revenue * 100) / 100, count: c.count })),
+      top5Customers: topCustomersAgg.map((c) => ({ name: c.name, phone: c.phone, total: Math.round(c.total * 100) / 100, count: c.count })),
+      bestDay: bestDayAgg[0] ? { date: bestDayAgg[0]._id, revenue: Math.round(bestDayAgg[0].revenue * 100) / 100, invoices: bestDayAgg[0].invoices } : null,
+      avgDailyRevenue: Math.round(avgDailyRevenue * 100) / 100,
     });
-  } catch {
-    res.json({
-      gold24K: 7200,
-      gold22K: 6600,
-      gold18K: 5400,
-      silver: 95,
-      timestamp: new Date().toISOString(),
-      source: "default",
-    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 };
