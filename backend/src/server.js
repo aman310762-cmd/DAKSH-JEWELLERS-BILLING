@@ -20,6 +20,8 @@ app.use(cors({
         "https://daksh-jewellers.vercel.app",
         "https://dakshjewellersbilling.in",
         "https://www.dakshjewellersbilling.in",
+        "http://localhost",
+        "capacitor://localhost",
         /\.vercel\.app$/,
         /dakshjewellersbilling\.in$/,
       ]
